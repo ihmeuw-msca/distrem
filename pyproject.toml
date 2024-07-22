@@ -3,11 +3,11 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pypkg"
+name = "ensemble"
 version = "0.1.0"
-description = "Python package template"
+description = "Distribution Ensemble Fitter"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = { text = "BSD-2-Clause" }
 authors = [
     { name = "IHME Math Sciences", email = "ihme.math.sciences@gmail.com" },
@@ -20,8 +20,8 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-cov"]
+test = ["pytest", "pytest-cov", "numpy", "scipy"]
 docs = ["sphinx", "sphinx-autodoc-typehints", "furo"]
 
 [project.urls]
-github = "https://github.com/ihmeuw-msca/pypkg"
+github = "https://github.com/ihmeuw-msca/ensemble"
