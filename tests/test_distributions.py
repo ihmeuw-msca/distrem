@@ -40,16 +40,19 @@ def test_gamma():
 
 
 def test_invgamma():
-    # raise NotImplementedError
     invgamma = InvGamma(MEAN, VARIANCE)
     res = invgamma.stats(moments="mv")
-    print("mean and var: ", res)
     assert np.isclose(res[0], MEAN)
     assert np.isclose(res[1], VARIANCE)
 
 
 def test_fisk():
-    raise NotImplementedError
+    fisk = Fisk(MEAN, VARIANCE)
+    res = fisk.stats(moments="mv")
+    print("est mean and var: ", res)
+    assert False
+    # assert np.isclose(res[0], MEAN)
+    # assert np.isclose(res[1], VARIANCE)
 
 
 def test_gumbel():
