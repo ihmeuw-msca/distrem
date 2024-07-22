@@ -19,8 +19,8 @@ from ensemble.distributions import (
 # @pytest.mark.parametrize("a, b, expected", [(1, 2, 3), (2, 3, 5)])
 # def test_add(a, b, expected):
 #     assert add(a, b) == expected
-MEAN = 0.5
-VARIANCE = 1.1
+MEAN = 5
+VARIANCE = 6.1
 
 
 def test_exp():
@@ -40,11 +40,12 @@ def test_gamma():
 
 
 def test_invgamma():
-    raise NotImplementedError
+    # raise NotImplementedError
     invgamma = InvGamma(MEAN, VARIANCE)
     res = invgamma.stats(moments="mv")
-    print(res)
-    assert False
+    print("mean and var: ", res)
+    assert np.isclose(res[0], MEAN)
+    assert np.isclose(res[1], VARIANCE)
 
 
 def test_fisk():

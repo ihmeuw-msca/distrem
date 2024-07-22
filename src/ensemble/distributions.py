@@ -42,22 +42,21 @@ class Gamma(Distribution):
 
 class InvGamma(Distribution):
     def _create_scipy_dist(self) -> None:
-        raise NotImplementedError
         res = scipy.optimize.minimize(
             fun=self._shape_scale,
-            # why is this the initial guess? idk either
-            x0=[self.mean, self.mean * np.sqrt(self.variance)],
+            # a *good* friend told me that this is a good initial guess and it works so far???
+            x0=[3, self.mean * 2],
             args=(self.mean, self.variance),
-            method="Nelder-Mead",
         )
         print("results from minimizer: ", res.x)
-        self._scipy_dist = scipy.stats.invgamma(a=res.x[0], scale=res.x[1])
+        shape, scale = np.abs(res.x)
+        self._scipy_dist = scipy.stats.invgamma(a=shape, scale=scale)
 
     def _shape_scale(self, x, samp_mean, samp_var) -> None:
         alpha = x[0]
         beta = x[1]
         return ((beta / (alpha - 1)) - samp_mean) ** 2 + (
-            beta**2 / ((alpha - 1) ** 2 * (alpha - 2)) - samp_var
+            (beta**2 / ((alpha - 1) ** 2 * (alpha - 2))) - samp_var
         ) ** 2
 
 
