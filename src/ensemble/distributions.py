@@ -65,12 +65,14 @@ class Fisk(Distribution):
     def _create_scipy_dist(self):
         optim_params = scipy.optimize.minimize(
             fun=self._shape_scale,
-            x0=[2, self.mean * 2 / np.pi * np.sin(np.pi / 2)],
+            # start beta at 1.1 and solve for alpha
+            x0=[self.mean * 1.1 * np.sin(np.pi / 1.1) / np.pi, 1.1],
             args=(self.mean, self.variance),
+            # options={"disp": True},
         )
         shape, scale = np.abs(optim_params.x)
-        print("parameters from optimizer: ", shape, scale)
-        self._scipy_dist = scipy.stats.fisk(c=shape, scale=scale)
+        # print("parameters from optimizer: ", shape, scale)
+        self._scipy_dist = scipy.stats.fisk(c=scale, scale=shape)
 
     def _shape_scale(self, x, samp_mean, samp_var) -> None:
         alpha = x[0]

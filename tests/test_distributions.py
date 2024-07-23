@@ -19,8 +19,8 @@ from ensemble.distributions import (
 # @pytest.mark.parametrize("a, b, expected", [(1, 2, 3), (2, 3, 5)])
 # def test_add(a, b, expected):
 #     assert add(a, b) == expected
-MEAN = 5
-VARIANCE = 6.1
+MEAN = 2
+VARIANCE = 8
 
 
 def test_exp():
@@ -49,10 +49,10 @@ def test_invgamma():
 def test_fisk():
     fisk = Fisk(MEAN, VARIANCE)
     res = fisk.stats(moments="mv")
-    print("est mean and var: ", res)
-    assert False
-    # assert np.isclose(res[0], MEAN)
-    # assert np.isclose(res[1], VARIANCE)
+    print("resulting mean and var: ", res)
+    # assert False
+    assert np.isclose(res[0], MEAN)
+    assert np.isclose(res[1], VARIANCE)
 
 
 def test_gumbel():
