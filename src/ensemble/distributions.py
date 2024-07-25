@@ -15,6 +15,7 @@ class Distribution(ABC):
         self.variance = variance
         self._scipy_dist = None
         self._create_scipy_dist()
+        self.name = self._set_name()
 
     @abstractmethod
     def _create_scipy_dist(self) -> None:
@@ -31,6 +32,10 @@ class Distribution(ABC):
 
 
 class Exponential(Distribution):
+    def __init__(self, mean, variance):
+        super().__init__(mean, variance)
+        self._name = "exponential"
+
     def _create_scipy_dist(self) -> None:
         positive_support(self.mean)
         lambda_ = 1 / self.mean
@@ -166,8 +171,18 @@ class Beta(Distribution):
 
 # exp, gamma, invgamma, llogis, gumbel, weibull, lognormal, normal, mgamma, mgumbel, beta
 
-
-# distribution_dict = {"exponential": Exponential()}
+# TODO: change strings later on
+distribution_dict = {
+    "exponential": Exponential,
+    "gamma": Gamma,
+    "invgamma": InvGamma,
+    "fisk": Fisk,
+    "gumbel": GumbelR,
+    "weibull": Weibull,
+    "lognormal": LogNormal,
+    "normal": Normal,
+    "beta": Beta,
+}
 
 
 ### HELPER FUNCTIONS
