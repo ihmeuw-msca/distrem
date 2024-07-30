@@ -96,14 +96,14 @@ def test_normal():
 
 
 def test_beta():
-    beta = Beta(BETA_MEAN, VARIANCE)
+    beta = Beta(BETA_MEAN, BETA_VARIANCE)
     res = beta.stats(moments="mv")
     print("resulting mean and var: ", res)
     assert np.isclose(res[0], BETA_MEAN)
-    assert np.isclose(res[1], VARIANCE)
+    assert np.isclose(res[1], BETA_VARIANCE)
 
 
-def test_diff_supports():
+def test_incorrect_supports():
     # negative means for only positive RVs
     with pytest.raises(ValueError):
         Exponential(NEG_MEAN, VARIANCE)

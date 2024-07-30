@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
 import numpy as np
+import numpy.typing as npt
 import scipy.optimize
 import scipy.stats
 from scipy.special import gamma as gamma_func
@@ -8,33 +9,41 @@ from scipy.special import gamma as gamma_func
 # from scipy.special import gammainccinv, gammaincinv
 
 
-# distribution parent class to abstract away the diff scipy funcs
 class Distribution(ABC):
-    def __init__(self, mean, variance):
+    def __init__(self, mean: float, variance: float):
         self.mean = mean
         self.variance = variance
+        # # some kind of dictionary with
+        # #   key: the support (full real line, semi infinite, etc...)
+        # #   value: function that gets called when distribution is initialized
+        # self.support = None
+        # self._support_setup()
         self._scipy_dist = None
         self._create_scipy_dist()
-        self.name = self._set_name()
 
     @abstractmethod
     def _create_scipy_dist(self) -> None:
         """Create scipy distribution from mean and variance"""
 
-    def pdf(self, x):
+    def rvs(self, *args, **kwds):
+        return self._scipy_dist.rvs(*args, **kwds)
+
+    def pdf(self, x: npt.ArrayLike):
         return self._scipy_dist.pdf(x)
 
-    def ppf(self, x):
+    def cdf(self, x: npt.ArrayLike):
+        return self._scipy_dist.cdf(x)
+
+    def ppf(self, x: npt.ArrayLike):
         return self._scipy_dist.ppf(x)
 
-    def stats(self, moments):
+    def stats(self, moments: str):
         return self._scipy_dist.stats(moments=moments)
 
 
+# analytic sol
 class Exponential(Distribution):
-    def __init__(self, mean, variance):
-        super().__init__(mean, variance)
-        self._name = "exponential"
+    support = "positive"
 
     def _create_scipy_dist(self) -> None:
         positive_support(self.mean)
@@ -42,7 +51,10 @@ class Exponential(Distribution):
         self._scipy_dist = scipy.stats.expon(scale=1 / lambda_)
 
 
+# analytic sol
 class Gamma(Distribution):
+    support = "strictly positive"
+
     def _create_scipy_dist(self) -> None:
         strict_positive_support(self.mean)
         alpha = self.mean**2 / self.variance
@@ -50,7 +62,10 @@ class Gamma(Distribution):
         self._scipy_dist = scipy.stats.gamma(a=alpha, scale=1 / beta)
 
 
+# TODO: INVESTIGATE analytic SOLUTION
 class InvGamma(Distribution):
+    support = "strictly positive"
+
     def _create_scipy_dist(self) -> None:
         strict_positive_support(self.mean)
         optim_params = scipy.optimize.minimize(
@@ -64,7 +79,7 @@ class InvGamma(Distribution):
         shape, scale = np.abs(optim_params.x)
         self._scipy_dist = scipy.stats.invgamma(a=shape, scale=scale)
 
-    def _shape_scale(self, x, samp_mean, samp_var) -> None:
+    def _shape_scale(self, x: list, samp_mean: float, samp_var: float) -> None:
         alpha = x[0]
         beta = x[1]
         mean_guess = beta / (alpha - 1)
@@ -72,7 +87,10 @@ class InvGamma(Distribution):
         return (mean_guess - samp_mean) ** 2 + (variance_guess - samp_var) ** 2
 
 
+# TODO: investigate analytic solution
 class Fisk(Distribution):
+    support = "positive"
+
     def _create_scipy_dist(self):
         positive_support(self.mean)
         optim_params = scipy.optimize.minimize(
@@ -86,7 +104,7 @@ class Fisk(Distribution):
         # parameterization notes: numpy's c is wikipedia's beta, numpy's scale is wikipedia's alpha
         self._scipy_dist = scipy.stats.fisk(c=beta, scale=alpha)
 
-    def _shape_scale(self, x, samp_mean, samp_var) -> None:
+    def _shape_scale(self, x: list, samp_mean: float, samp_var: float) -> None:
         alpha = x[0]
         beta = x[1]
         b = np.pi / beta
@@ -97,14 +115,20 @@ class Fisk(Distribution):
         return (mean_guess - samp_mean) ** 2 + (variance_guess - samp_var) ** 2
 
 
+# analytic sol
 class GumbelR(Distribution):
+    support = "real line"
+
     def _create_scipy_dist(self) -> None:
         loc = self.mean - np.sqrt(self.variance * 6) * np.euler_gamma / np.pi
         scale = np.sqrt(self.variance * 6) / np.pi
         self._scipy_dist = scipy.stats.gumbel_r(loc=loc, scale=scale)
 
 
+# hopelessly broken
 class Weibull(Distribution):
+    support = "positive"
+
     def _create_scipy_dist(self) -> None:
         positive_support(self.mean)
         optim_params = scipy.optimize.minimize(
@@ -118,7 +142,8 @@ class Weibull(Distribution):
         print("params from optim: ", lambda_, k)
         self._scipy_dist = scipy.stats.weibull_min(c=k, scale=lambda_)
 
-    def _shape_scale(self, x, samp_mean, samp_var) -> None:
+    def _shape_scale(self, x: list, samp_mean: float, samp_var: float) -> float:
+        # TODO: TAKE A LOOK AT JAX SINCE IT DOES AUTOMATIC DERIVATIVES
         lambda_ = x[0]
         k = x[1]
         mean_guess = lambda_ * gamma_func(1 + (1 / k))
@@ -128,8 +153,12 @@ class Weibull(Distribution):
         return (mean_guess - samp_mean) ** 2 + (variance_guess - samp_var) ** 2
 
 
+# somewhat broken
 class LogNormal(Distribution):
+    support = "strictly positive"
+
     def _create_scipy_dist(self) -> None:
+        strict_positive_support(self.mean)
         # using method of moments gets close, but not quite there
         loc = np.log(self.mean / np.sqrt(1 + (self.variance / self.mean**2)))
         scale = np.sqrt(np.log(1 + (self.variance / self.mean**2)))
@@ -138,35 +167,32 @@ class LogNormal(Distribution):
         self._scipy_dist = scipy.stats.lognorm(loc=loc, s=scale)
 
 
+# analytic sol
 class Normal(Distribution):
+    support = "positive"
+
     def _create_scipy_dist(self) -> None:
         self._scipy_dist = scipy.stats.norm(
             loc=self.mean, scale=np.sqrt(self.variance)
         )
 
 
+# analytic sol
 class Beta(Distribution):
+    support = "bounded"
+
     def _create_scipy_dist(self) -> None:
         beta_bounds(self.mean)
-        optim_params = scipy.optimize.minimize(
-            fun=self._shape_scale,
-            # trying something similar to invgamma, unsuccessful for variance
-            x0=[2, self.mean * 2 - 2],
-            args=(self.mean, self.variance),
-            options={"disp": True},
+        alpha = (
+            self.mean**2 * (1 - self.mean) - self.mean * self.variance
+        ) / self.variance
+        beta = (
+            (1 - self.mean)
+            * (self.mean - self.mean**2 - self.variance)
+            / self.variance
         )
-        alpha, beta = np.abs(optim_params.x)
-        print("params from optim: ", alpha, beta)
+        print(alpha, beta)
         self._scipy_dist = scipy.stats.beta(a=alpha, b=beta)
-
-    def _shape_scale(self, x, samp_mean, samp_var):
-        alpha = x[0]
-        beta = x[1]
-        mean_guess = alpha / (alpha + beta)
-        variance_guess = (
-            alpha * beta / ((alpha + beta) ** 2 * (alpha + beta + 1))
-        )
-        return (mean_guess - samp_mean) ** 2 + (variance_guess - samp_var) ** 2
 
 
 # exp, gamma, invgamma, llogis, gumbel, weibull, lognormal, normal, mgamma, mgumbel, beta
@@ -188,16 +214,16 @@ distribution_dict = {
 ### HELPER FUNCTIONS
 # the following functions give a crude solution to negative means which surely mean the data is negative
 # what about data that is negative, but still has a positive mean?
-def positive_support(mean):
+def positive_support(mean: float) -> None:
     if mean < 0:
         raise ValueError("This distribution is only supported on [0, np.inf)")
 
 
-def strict_positive_support(mean):
+def strict_positive_support(mean: float) -> None:
     if mean <= 0:
         raise ValueError("This distribution is only supported on (0, np.inf)")
 
 
-def beta_bounds(mean):
+def beta_bounds(mean: float) -> None:
     if (mean < 0) or (mean > 1):
         raise ValueError("This distribution is only supposrted on [0, 1]")
