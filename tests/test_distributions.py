@@ -22,8 +22,8 @@ from ensemble.distributions import (
 NEG_MEAN = -2
 BETA_MEAN = 0.5
 BETA_VARIANCE = 0.2
-MEAN = 2
-VARIANCE = 8
+MEAN = 1
+VARIANCE = 2
 
 
 def test_exp():
@@ -48,6 +48,7 @@ def test_invgamma():
     assert np.isclose(res[1], VARIANCE)
 
 
+# TODO: WRITE ADDITIONAL TESTS DUE TO NUMERICAL SOLUTION
 def test_fisk():
     fisk = Fisk(MEAN, VARIANCE)
     res = fisk.stats(moments="mv")

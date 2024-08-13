@@ -62,32 +62,18 @@ class Gamma(Distribution):
         self._scipy_dist = scipy.stats.gamma(a=alpha, scale=1 / beta)
 
 
-# TODO: INVESTIGATE analytic SOLUTION
+# analytic sol
 class InvGamma(Distribution):
     support = "strictly positive"
 
     def _create_scipy_dist(self) -> None:
         strict_positive_support(self.mean)
-        optim_params = scipy.optimize.minimize(
-            fun=self._shape_scale,
-            # a *good* friend told me that this is a good initial guess and it works so far???
-            #   alpha = 3 is because alpha > 2 must be true due to variance formula
-            #   beta = mean * (alpha - 1) after isolating beta from formula for mean
-            x0=[3, self.mean * 2],
-            args=(self.mean, self.variance),
-        )
-        shape, scale = np.abs(optim_params.x)
-        self._scipy_dist = scipy.stats.invgamma(a=shape, scale=scale)
-
-    def _shape_scale(self, x: list, samp_mean: float, samp_var: float) -> None:
-        alpha = x[0]
-        beta = x[1]
-        mean_guess = beta / (alpha - 1)
-        variance_guess = beta**2 / ((alpha - 1) ** 2 * (alpha - 2))
-        return (mean_guess - samp_mean) ** 2 + (variance_guess - samp_var) ** 2
+        alpha = self.mean**2 / self.variance + 2
+        beta = self.mean * (self.mean**2 / self.variance + 1)
+        self._scipy_dist = scipy.stats.invgamma(a=alpha, scale=beta)
 
 
-# TODO: investigate analytic solution
+# numerical sol
 class Fisk(Distribution):
     support = "positive"
 
@@ -102,6 +88,7 @@ class Fisk(Distribution):
         )
         alpha, beta = np.abs(optim_params.x)
         # parameterization notes: numpy's c is wikipedia's beta, numpy's scale is wikipedia's alpha
+        # additional note: analytical solution doesn't work b/c dependent on derivative
         self._scipy_dist = scipy.stats.fisk(c=beta, scale=alpha)
 
     def _shape_scale(self, x: list, samp_mean: float, samp_var: float) -> None:
@@ -153,23 +140,23 @@ class Weibull(Distribution):
         return (mean_guess - samp_mean) ** 2 + (variance_guess - samp_var) ** 2
 
 
-# somewhat broken
+# analytic sol (M.O.M. estimators)
 class LogNormal(Distribution):
     support = "strictly positive"
 
     def _create_scipy_dist(self) -> None:
         strict_positive_support(self.mean)
-        # using method of moments gets close, but not quite there
-        loc = np.log(self.mean / np.sqrt(1 + (self.variance / self.mean**2)))
-        scale = np.sqrt(np.log(1 + (self.variance / self.mean**2)))
-        # loc = np.log(self.mean**2 / np.sqrt(self.mean**2 + self.variance))
-        # scale = np.log(1 + self.variance / self.mean**2)
-        self._scipy_dist = scipy.stats.lognorm(loc=loc, s=scale)
+        mu = np.log(self.mean / np.sqrt(1 + (self.variance / self.mean**2)))
+        sigma = np.sqrt(np.log(1 + (self.variance / self.mean**2)))
+        # scipy multiplies in the argument passed to `scale` so in the exponentiated space,
+        # you're essentially adding `mu` within the exponentiated expression within the
+        # lognormal's PDF; hence, scale is with exponentiation instead of loc
+        self._scipy_dist = scipy.stats.lognorm(scale=np.exp(mu), s=sigma)
 
 
 # analytic sol
 class Normal(Distribution):
-    support = "positive"
+    support = "real line"
 
     def _create_scipy_dist(self) -> None:
         self._scipy_dist = scipy.stats.norm(
