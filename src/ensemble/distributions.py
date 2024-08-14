@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 import numpy.typing as npt
-import scipy.optimize
-import scipy.stats
+import scipy.optimize as opt
+import scipy.stats as stats
 from scipy.special import gamma as gamma_func
 
 # from scipy.special import gammainccinv, gammaincinv
@@ -48,7 +48,7 @@ class Exponential(Distribution):
     def _create_scipy_dist(self) -> None:
         positive_support(self.mean)
         lambda_ = 1 / self.mean
-        self._scipy_dist = scipy.stats.expon(scale=1 / lambda_)
+        self._scipy_dist = stats.expon(scale=1 / lambda_)
 
 
 # analytic sol
@@ -59,7 +59,7 @@ class Gamma(Distribution):
         strict_positive_support(self.mean)
         alpha = self.mean**2 / self.variance
         beta = self.mean / self.variance
-        self._scipy_dist = scipy.stats.gamma(a=alpha, scale=1 / beta)
+        self._scipy_dist = stats.gamma(a=alpha, scale=1 / beta)
 
 
 # analytic sol
@@ -70,7 +70,7 @@ class InvGamma(Distribution):
         strict_positive_support(self.mean)
         alpha = self.mean**2 / self.variance + 2
         beta = self.mean * (self.mean**2 / self.variance + 1)
-        self._scipy_dist = scipy.stats.invgamma(a=alpha, scale=beta)
+        self._scipy_dist = stats.invgamma(a=alpha, scale=beta)
 
 
 # numerical sol
@@ -79,7 +79,7 @@ class Fisk(Distribution):
 
     def _create_scipy_dist(self):
         positive_support(self.mean)
-        optim_params = scipy.optimize.minimize(
+        optim_params = opt.minimize(
             fun=self._shape_scale,
             # start beta at 1.1 and solve for alpha
             x0=[self.mean * 1.1 * np.sin(np.pi / 1.1) / np.pi, 1.1],
@@ -89,7 +89,7 @@ class Fisk(Distribution):
         alpha, beta = np.abs(optim_params.x)
         # parameterization notes: numpy's c is wikipedia's beta, numpy's scale is wikipedia's alpha
         # additional note: analytical solution doesn't work b/c dependent on derivative
-        self._scipy_dist = scipy.stats.fisk(c=beta, scale=alpha)
+        self._scipy_dist = stats.fisk(c=beta, scale=alpha)
 
     def _shape_scale(self, x: list, samp_mean: float, samp_var: float) -> None:
         alpha = x[0]
@@ -109,7 +109,7 @@ class GumbelR(Distribution):
     def _create_scipy_dist(self) -> None:
         loc = self.mean - np.sqrt(self.variance * 6) * np.euler_gamma / np.pi
         scale = np.sqrt(self.variance * 6) / np.pi
-        self._scipy_dist = scipy.stats.gumbel_r(loc=loc, scale=scale)
+        self._scipy_dist = stats.gumbel_r(loc=loc, scale=scale)
 
 
 # hopelessly broken
@@ -118,7 +118,7 @@ class Weibull(Distribution):
 
     def _create_scipy_dist(self) -> None:
         positive_support(self.mean)
-        optim_params = scipy.optimize.minimize(
+        optim_params = opt.minimize(
             fun=self._shape_scale,
             # ideally can invert gamma function for k, then use mean / sd as a guess for lambda
             x0=[self.mean / gamma_func(1 + 1 / 1.5), 1.5],
@@ -127,7 +127,7 @@ class Weibull(Distribution):
         )
         lambda_, k = np.abs(optim_params.x)
         print("params from optim: ", lambda_, k)
-        self._scipy_dist = scipy.stats.weibull_min(c=k, scale=lambda_)
+        self._scipy_dist = stats.weibull_min(c=k, scale=lambda_)
 
     def _shape_scale(self, x: list, samp_mean: float, samp_var: float) -> float:
         # TODO: TAKE A LOOK AT JAX SINCE IT DOES AUTOMATIC DERIVATIVES
@@ -151,7 +151,7 @@ class LogNormal(Distribution):
         # scipy multiplies in the argument passed to `scale` so in the exponentiated space,
         # you're essentially adding `mu` within the exponentiated expression within the
         # lognormal's PDF; hence, scale is with exponentiation instead of loc
-        self._scipy_dist = scipy.stats.lognorm(scale=np.exp(mu), s=sigma)
+        self._scipy_dist = stats.lognorm(scale=np.exp(mu), s=sigma)
 
 
 # analytic sol
@@ -159,7 +159,7 @@ class Normal(Distribution):
     support = "real line"
 
     def _create_scipy_dist(self) -> None:
-        self._scipy_dist = scipy.stats.norm(
+        self._scipy_dist = stats.norm(
             loc=self.mean, scale=np.sqrt(self.variance)
         )
 
@@ -179,7 +179,7 @@ class Beta(Distribution):
             / self.variance
         )
         print(alpha, beta)
-        self._scipy_dist = scipy.stats.beta(a=alpha, b=beta)
+        self._scipy_dist = stats.beta(a=alpha, b=beta)
 
 
 # exp, gamma, invgamma, llogis, gumbel, weibull, lognormal, normal, mgamma, mgumbel, beta
