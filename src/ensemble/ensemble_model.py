@@ -10,17 +10,55 @@ from ensemble.distributions import distribution_dict
 
 
 class EnsembleModel:
-    def __init__(self, distributions, weights, mean, variance):
+    def __init__(
+        self, distributions: List[str], weights: List[float], mean, variance
+    ):
+        self.supports = _check_supports_match(distributions)
         self.distributions = distributions
+        self.my_objs = []
+        for distribution in distributions:
+            self.my_objs.append(distribution_dict[distribution](mean, variance))
         self.weights = weights
         self.mean = mean
         self.variance = variance
 
+    def _ppf_to_solve(self, x, q):
+        return (
+            self.cdf(
+                x, self.distributions, self.weights, self.mean, self.variance
+            )
+            - q
+        )
+
+    def _ppf_single(q):
+        factor = 10.0
+        some_distribution = self.supports.pop()
+        left, right = some_distribution.support()
+
+        while ppf_to_solve(left, q) > 0:
+            left, right = left * factor, left
+
+        while ppf_to_solve(right, q) < 0:
+            left, right = right, right * factor
+
+        return opt.brentq(ppf_to_solve, left, right, args=q)
+
+    def ensemble_rvs(size):
+        ppf_vec = np.vectorize(ppf_single, otypes="d")
+        unif_samp = stats.uniform.rvs(size=size)
+        return ppf_vec(unif_samp)
+
     def pdf(self, x):
-        raise NotImplementedError
+        return sum(
+            weight * distribution.pdf(x)
+            for distribution, weight in zip(self.my_objs, self.weights)
+        )
 
     def cdf(self, q):
-        raise NotImplementedError
+        return sum(
+            weight * distribution.cdf(q)
+            for distribution, weight in zip(self.my_objs, self.weights)
+        )
 
     def ppf(self, p):
         raise NotImplementedError
@@ -53,15 +91,7 @@ class EnsembleResult:
 
 class EnsembleFitter:
     def __init__(self, distributions: List[str], objective):
-        self.supports = set()
-        for distribution in distributions:
-            self.supports.add(distribution_dict[distribution].support)
-        # TODO: HOW SHOULD WE TELL THE USER WHICH DISTRIBUTION IS THE "TROUBLEMAKER"?
-        if len(self.supports) != 1:
-            raise ValueError(
-                "the provided list of distributions do not all have the same support: "
-                + str(self.supports)
-            )
+        self.supports = _check_supports_match(distributions)
         self.distributions = distributions
         self.objective = objective
 
@@ -125,4 +155,15 @@ class EnsembleFitter:
 
 ### HELPER FUNCTIONS
 
-### HELPER FUNCTIONS
+
+def _check_supports_match(distributions):
+    supports = set()
+    for distribution in distributions:
+        supports.add(distribution_dict[distribution].support)
+    # TODO: HOW SHOULD WE TELL THE USER WHICH DISTRIBUTION IS THE "TROUBLEMAKER"?
+    if len(supports) != 1:
+        raise ValueError(
+            "the provided list of distributions do not all have the same support: "
+            + str(supports)
+        )
+    return supports

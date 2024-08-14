@@ -40,6 +40,9 @@ class Distribution(ABC):
     def stats(self, moments: str):
         return self._scipy_dist.stats(moments=moments)
 
+    def support(self):
+        return self._scipy_dist.support()
+
 
 # analytic sol
 class Exponential(Distribution):
