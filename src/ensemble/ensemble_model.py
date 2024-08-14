@@ -30,23 +30,22 @@ class EnsembleModel:
             - q
         )
 
-    def _ppf_single(q):
+    def _ppf_single(self, q):
         factor = 10.0
         some_distribution = self.supports.pop()
         left, right = some_distribution.support()
 
-        while ppf_to_solve(left, q) > 0:
-            left, right = left * factor, left
+        if np.isinf(left):
+            left = min(-factor, right)
+            while self._ppf_to_solve(left, q) > 0:
+                left, right = left * factor, left
 
-        while ppf_to_solve(right, q) < 0:
-            left, right = right, right * factor
+        if np.isinf(right):
+            right = max(factor, left)
+            while self._ppf_to_solve(right, q) < 0:
+                left, right = right, right * factor
 
-        return opt.brentq(ppf_to_solve, left, right, args=q)
-
-    def ensemble_rvs(size):
-        ppf_vec = np.vectorize(ppf_single, otypes="d")
-        unif_samp = stats.uniform.rvs(size=size)
-        return ppf_vec(unif_samp)
+        return opt.brentq(self._ppf_to_solve, left, right, args=q)
 
     def pdf(self, x):
         return sum(
@@ -61,10 +60,12 @@ class EnsembleModel:
         )
 
     def ppf(self, p):
-        raise NotImplementedError
+        ppf_vec = np.vectorize(self._ppf_single, otypes="d")
+        return ppf_vec(p)
 
     def rvs(self, size=1):
-        raise NotImplementedError
+        unif_samp = stats.uniform.rvs(size=size)
+        return self.ppf(unif_samp)
 
     def stats_temp(self, moments="mv"):
         res_list = []
@@ -147,7 +148,9 @@ class EnsembleFitter:
             # ),
             # distributions=self.distributions,
             weights=fitted_weights,
-            ensemble_model=EnsembleModel(None, None, None, None),
+            ensemble_model=EnsembleModel(
+                self.distributions, fitted_weights, sample_mean, sample_variance
+            ),
         )
 
         return res
