@@ -36,7 +36,7 @@ class EnsembleModel:
         mean: float,
         variance: float,
     ):
-        self.supports = _check_supports_match(distributions)
+        self.support = _check_supports_match(distributions)
         self.distributions = distributions
         self.my_objs = []
         for distribution in distributions:
@@ -63,7 +63,7 @@ class EnsembleModel:
         """
         return (
             self.cdf(
-                x, self.distributions, self.weights, self.mean, self.variance
+                x  # , self.distributions, self.weights, self.mean, self.variance
             )
             - p
         )
@@ -85,7 +85,8 @@ class EnsembleModel:
 
         """
         factor = 10.0
-        left, right = self.supports.pop()
+        # left, right = self.supports.pop()
+        left, right = self.support
 
         if np.isinf(left):
             left = min(-factor, right)
@@ -251,7 +252,7 @@ class EnsembleFitter:
     """
 
     def __init__(self, distributions: List[str], objective: str):
-        self.supports = _check_supports_match(distributions)
+        self.support = _check_supports_match(distributions)
         self.distributions = distributions
         self.objective = objective
 
@@ -278,7 +279,7 @@ class EnsembleFitter:
         """
         if objective is not None:
             raise NotImplementedError
-        return linalg.norm(vec, 2)
+        return linalg.norm(vec, 2) ** 2
 
     def ensemble_func(
         self, weights: List[float], ecdf: np.ndarray, cdfs: np.ndarray
@@ -330,13 +331,13 @@ class EnsembleFitter:
         # fill matrix with cdf values over support of data
         num_distributions = len(self.distributions)
         cdfs = np.zeros((len(data), num_distributions))
-        pdfs = np.zeros((len(data), num_distributions))
+        # pdfs = np.zeros((len(data), num_distributions))
         for i in range(num_distributions):
             curr_dist = distribution_dict[self.distributions[i]](
                 sample_mean, sample_variance
             )
             cdfs[:, i] = curr_dist.cdf(equantiles)
-            pdfs[:, i] = curr_dist.pdf(equantiles)
+            # pdfs[:, i] = curr_dist.pdf(equantiles)
 
         # initialize equal weights for all dists and optimize
         initial_guess = np.zeros(num_distributions) + 1 / num_distributions
@@ -370,7 +371,7 @@ class EnsembleFitter:
 ### HELPER FUNCTIONS
 
 
-def _check_supports_match(distributions: List[str]) -> set:
+def _check_supports_match(distributions: List[str]) -> Tuple[float, float]:
     """checks that supports of all distributions given are *exactly* the same
 
     Parameters
@@ -380,21 +381,25 @@ def _check_supports_match(distributions: List[str]) -> set:
 
     Returns
     -------
-    supports: set
-        set containing supports of all distributions in ensemble
+    supports: Tuple[float, float]
+        support of ensemble distributions given that all distributions in
+        ensemble are compatible
 
     Raises
     ------
     ValueError
-        upon giving distributions whose supports do not exactly match one another
+        upon giving distributions whose supports do not exactly match one
+        another
     """
     supports = set()
     for distribution in distributions:
-        supports.add(distribution_dict[distribution].support())
+        supports.add(distribution_dict[distribution]().support())
     # TODO: HOW SHOULD WE TELL THE USER WHICH DISTRIBUTION IS THE "TROUBLEMAKER"?
     if len(supports) != 1:
         raise ValueError(
             "the provided list of distributions do not all have the same support: "
             + str(supports)
         )
-    return supports
+    # if the return statement is reached, the `set()` named `supports` will only
+    # ever have one support within it, which is popped out and returned
+    return supports.pop()

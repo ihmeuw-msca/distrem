@@ -17,7 +17,7 @@ class Distribution(ABC):
 
     """
 
-    def __init__(self, mean: float, variance: float):
+    def __init__(self, mean: float = None, variance: float = None):
         self.mean = mean
         self.variance = variance
         # # some kind of dictionary with
@@ -26,11 +26,15 @@ class Distribution(ABC):
         # self.support = None
         # self._support_setup()
         self._scipy_dist = None
-        self._create_scipy_dist()
+        if self.mean is not None and self.variance is not None:
+            self._create_scipy_dist()
 
     @abstractmethod
     def _create_scipy_dist(self) -> None:
         """Create scipy distribution from mean and variance"""
+
+    def support(self) -> Tuple[float, float]:
+        """create tuple representing endpoints of support"""
 
     def rvs(self, *args, **kwds):
         """defaults to scipy implementation for generating random variates
@@ -102,20 +106,14 @@ class Distribution(ABC):
         """
         return self._scipy_dist.stats(moments=moments)
 
-    def support(self) -> Tuple[float, float]:
-        """defaults to scipy implementation for obtaining support of
-        distribution
-
-        Returns
-        -------
-        Tuple[float, float]
-            endpoints of support of distribution
-        """
-        return self._scipy_dist.support()
-
 
 # analytic sol
 class Exponential(Distribution):
+    """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.expon.html"""
+
+    def support(self) -> Tuple[float, float]:
+        return (0, np.inf)
+
     def _create_scipy_dist(self) -> None:
         positive_support(self.mean)
         lambda_ = 1 / self.mean
@@ -124,6 +122,11 @@ class Exponential(Distribution):
 
 # analytic sol
 class Gamma(Distribution):
+    """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gamma.html#scipy.stats.gamma"""
+
+    def support(self) -> Tuple[float, float]:
+        return (0, np.inf)
+
     def _create_scipy_dist(self) -> None:
         strict_positive_support(self.mean)
         alpha = self.mean**2 / self.variance
@@ -133,6 +136,11 @@ class Gamma(Distribution):
 
 # analytic sol
 class InvGamma(Distribution):
+    """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.invgamma.html#scipy.stats.invgamma"""
+
+    def support(self) -> Tuple[float, float]:
+        return (0, np.inf)
+
     def _create_scipy_dist(self) -> None:
         strict_positive_support(self.mean)
         alpha = self.mean**2 / self.variance + 2
@@ -142,6 +150,11 @@ class InvGamma(Distribution):
 
 # numerical sol
 class Fisk(Distribution):
+    """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.fisk.html#scipy.stats.fisk"""
+
+    def support(self) -> Tuple[float, float]:
+        return (0, np.inf)
+
     def _create_scipy_dist(self):
         positive_support(self.mean)
         optim_params = opt.minimize(
@@ -169,6 +182,11 @@ class Fisk(Distribution):
 
 # analytic sol
 class GumbelR(Distribution):
+    """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gumbel_r.html#scipy.stats.gumbel_r"""
+
+    def support(self) -> Tuple[float, float]:
+        return (-np.inf, np.inf)
+
     def _create_scipy_dist(self) -> None:
         loc = self.mean - np.sqrt(self.variance * 6) * np.euler_gamma / np.pi
         scale = np.sqrt(self.variance * 6) / np.pi
@@ -177,6 +195,11 @@ class GumbelR(Distribution):
 
 # hopelessly broken
 class Weibull(Distribution):
+    """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.weibull_min.html#scipy.stats.weibull_min"""
+
+    def support(self) -> Tuple[float, float]:
+        return (0, np.inf)
+
     def _create_scipy_dist(self) -> None:
         positive_support(self.mean)
         optim_params = opt.minimize(
@@ -203,6 +226,11 @@ class Weibull(Distribution):
 
 # analytic sol (M.O.M. estimators)
 class LogNormal(Distribution):
+    """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.lognorm.html#scipy.stats.lognorm"""
+
+    def support(self) -> Tuple[float, float]:
+        return (0, np.inf)
+
     def _create_scipy_dist(self) -> None:
         strict_positive_support(self.mean)
         mu = np.log(self.mean / np.sqrt(1 + (self.variance / self.mean**2)))
@@ -215,6 +243,14 @@ class LogNormal(Distribution):
 
 # analytic sol
 class Normal(Distribution):
+    """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.norm.html#scipy.stats.norm"""
+
+    def support(self) -> Tuple[float, float]:
+        return (-np.inf, np.inf)
+
+    def _create_empty_scipy_dist(self) -> None:
+        self._scipy_dist = stats.norm
+
     def _create_scipy_dist(self) -> None:
         self._scipy_dist = stats.norm(
             loc=self.mean, scale=np.sqrt(self.variance)
@@ -223,6 +259,11 @@ class Normal(Distribution):
 
 # analytic sol
 class Beta(Distribution):
+    """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.beta.html#scipy.stats.beta"""
+
+    def support(self) -> Tuple[float, float]:
+        return (0, 1)
+
     def _create_scipy_dist(self) -> None:
         beta_bounds(self.mean)
         alpha = (
