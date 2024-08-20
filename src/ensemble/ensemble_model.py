@@ -5,6 +5,7 @@ import numpy.typing as npt
 import scipy.linalg as linalg
 import scipy.optimize as opt
 import scipy.stats as stats
+from jaxopt import ScipyBoundedMinimize
 
 from ensemble.distributions import distribution_dict
 
@@ -347,14 +348,17 @@ class EnsembleFitter:
         initial_guess = np.zeros(num_distributions) + 1 / num_distributions
         bounds = tuple((0, 1) for i in range(num_distributions))
         # TODO: IMPLEMENT WITH JAX INSTEAD
-        minimizer_result = opt.minimize(
-            fun=self.ensemble_func,
-            x0=initial_guess,
-            args=(ecdf, cdfs),
-            bounds=bounds,
-            # options={"disp": True},
-        )
-        fitted_weights = minimizer_result.x
+        minimizer_result = ScipyBoundedMinimize(
+            fun=self.ensemble_func, args=(ecdf, cdfs), method="l-bfgs-b"
+        ).run(initial_guess, bounds=bounds)
+        # minimizer_result = opt.minimize(
+        #     fun=self.ensemble_func,
+        #     x0=initial_guess,
+        #     args=(ecdf, cdfs),
+        #     bounds=bounds,
+        #     # options={"disp": True},
+        # )
+        fitted_weights = minimizer_result.params
 
         res = EnsembleResult(
             # weights=tuple(
