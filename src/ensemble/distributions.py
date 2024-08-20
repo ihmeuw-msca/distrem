@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -10,7 +11,13 @@ from scipy.special import gamma as gamma_func
 
 
 class Distribution(ABC):
-    def __init__(self, mean: float, variance: float):
+    """Abstract class for objects that fit scipy distributions given a certain
+    mean/variance, and return a limited amount of the original functionality
+    of the original scipy rv_continuous object.
+
+    """
+
+    def __init__(self, mean: float = None, variance: float = None):
         self.mean = mean
         self.variance = variance
         # # some kind of dictionary with
@@ -19,31 +26,93 @@ class Distribution(ABC):
         # self.support = None
         # self._support_setup()
         self._scipy_dist = None
-        self._create_scipy_dist()
+        if self.mean is not None and self.variance is not None:
+            self._create_scipy_dist()
 
     @abstractmethod
     def _create_scipy_dist(self) -> None:
         """Create scipy distribution from mean and variance"""
 
+    def support(self) -> Tuple[float, float]:
+        """create tuple representing endpoints of support"""
+
     def rvs(self, *args, **kwds):
+        """defaults to scipy implementation for generating random variates
+
+        Returns
+        -------
+        np.ndarray
+            random variates from a given distribution/parameters
+        """
         return self._scipy_dist.rvs(*args, **kwds)
 
-    def pdf(self, x: npt.ArrayLike):
+    def pdf(self, x: npt.ArrayLike) -> np.ndarray:
+        """defaults to scipy implementation for probability density function
+
+        Parameters
+        ----------
+        x : npt.ArrayLike
+            quantiles
+
+        Returns
+        -------
+        np.ndarray
+            PDF evaluated at quantile x
+        """
         return self._scipy_dist.pdf(x)
 
-    def cdf(self, x: npt.ArrayLike):
-        return self._scipy_dist.cdf(x)
+    def cdf(self, q: npt.ArrayLike) -> np.ndarray:
+        """defaults to scipy implementation for cumulative density function
 
-    def ppf(self, x: npt.ArrayLike):
-        return self._scipy_dist.ppf(x)
+        Parameters
+        ----------
+        q : npt.ArrayLike
+            quantiles
 
-    def stats(self, moments: str):
+        Returns
+        -------
+        np.ndarray
+            CDF evaluated at quantile q
+        """
+        return self._scipy_dist.cdf(q)
+
+    def ppf(self, p: npt.ArrayLike) -> np.ndarray:
+        """defaults to scipy implementation for percent point function
+
+        Parameters
+        ----------
+        p : npt.ArrayLike
+            lower tail probability
+
+        Returns
+        -------
+        np.ndarray
+            PPF evaluated at lower tail probability p
+        """
+        return self._scipy_dist.ppf(p)
+
+    def stats(self, moments: str) -> Union[float, Tuple[float, ...]]:
+        """defaults to scipy implementation for obtaining moments
+
+        Parameters
+        ----------
+        moments : str
+            m for mean, v for variance, s for skewness, k for kurtosis
+
+        Returns
+        -------
+        Union[float, Tuple[float, ...]]
+            mean, variance, skewness, and/or kurtosis
+        """
         return self._scipy_dist.stats(moments=moments)
 
 
 # analytic sol
 class Exponential(Distribution):
-    support = "positive"
+    """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.expon.html"""
+
+    def support(self) -> Tuple[float, float]:
+        return (0, np.inf)
 
     def _create_scipy_dist(self) -> None:
         positive_support(self.mean)
@@ -53,7 +122,10 @@ class Exponential(Distribution):
 
 # analytic sol
 class Gamma(Distribution):
-    support = "strictly positive"
+    """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gamma.html#scipy.stats.gamma"""
+
+    def support(self) -> Tuple[float, float]:
+        return (0, np.inf)
 
     def _create_scipy_dist(self) -> None:
         strict_positive_support(self.mean)
@@ -64,7 +136,10 @@ class Gamma(Distribution):
 
 # analytic sol
 class InvGamma(Distribution):
-    support = "strictly positive"
+    """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.invgamma.html#scipy.stats.invgamma"""
+
+    def support(self) -> Tuple[float, float]:
+        return (0, np.inf)
 
     def _create_scipy_dist(self) -> None:
         strict_positive_support(self.mean)
@@ -75,7 +150,10 @@ class InvGamma(Distribution):
 
 # numerical sol
 class Fisk(Distribution):
-    support = "positive"
+    """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.fisk.html#scipy.stats.fisk"""
+
+    def support(self) -> Tuple[float, float]:
+        return (0, np.inf)
 
     def _create_scipy_dist(self):
         positive_support(self.mean)
@@ -104,7 +182,10 @@ class Fisk(Distribution):
 
 # analytic sol
 class GumbelR(Distribution):
-    support = "real line"
+    """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gumbel_r.html#scipy.stats.gumbel_r"""
+
+    def support(self) -> Tuple[float, float]:
+        return (-np.inf, np.inf)
 
     def _create_scipy_dist(self) -> None:
         loc = self.mean - np.sqrt(self.variance * 6) * np.euler_gamma / np.pi
@@ -114,7 +195,10 @@ class GumbelR(Distribution):
 
 # hopelessly broken
 class Weibull(Distribution):
-    support = "positive"
+    """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.weibull_min.html#scipy.stats.weibull_min"""
+
+    def support(self) -> Tuple[float, float]:
+        return (0, np.inf)
 
     def _create_scipy_dist(self) -> None:
         positive_support(self.mean)
@@ -142,7 +226,10 @@ class Weibull(Distribution):
 
 # analytic sol (M.O.M. estimators)
 class LogNormal(Distribution):
-    support = "strictly positive"
+    """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.lognorm.html#scipy.stats.lognorm"""
+
+    def support(self) -> Tuple[float, float]:
+        return (0, np.inf)
 
     def _create_scipy_dist(self) -> None:
         strict_positive_support(self.mean)
@@ -156,7 +243,13 @@ class LogNormal(Distribution):
 
 # analytic sol
 class Normal(Distribution):
-    support = "real line"
+    """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.norm.html#scipy.stats.norm"""
+
+    def support(self) -> Tuple[float, float]:
+        return (-np.inf, np.inf)
+
+    def _create_empty_scipy_dist(self) -> None:
+        self._scipy_dist = stats.norm
 
     def _create_scipy_dist(self) -> None:
         self._scipy_dist = stats.norm(
@@ -166,7 +259,10 @@ class Normal(Distribution):
 
 # analytic sol
 class Beta(Distribution):
-    support = "bounded"
+    """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.beta.html#scipy.stats.beta"""
+
+    def support(self) -> Tuple[float, float]:
+        return (0, 1)
 
     def _create_scipy_dist(self) -> None:
         beta_bounds(self.mean)
