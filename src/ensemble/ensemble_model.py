@@ -277,9 +277,13 @@ class EnsembleFitter:
         NotImplementedError
             because the other ones havent been implemented yet lol
         """
-        if objective is not None:
-            raise NotImplementedError
-        return linalg.norm(vec, 2) ** 2
+        match objective:
+            case "L1":
+                return linalg.norm(vec, 1)
+            case "L2":
+                return linalg.norm(vec, 2) ** 2
+            case "KS":
+                return np.max(np.abs(vec))
 
     def ensemble_func(
         self, weights: List[float], ecdf: np.ndarray, cdfs: np.ndarray
@@ -348,6 +352,7 @@ class EnsembleFitter:
             x0=initial_guess,
             args=(ecdf, cdfs),
             bounds=bounds,
+            # options={"disp": True},
         )
         fitted_weights = minimizer_result.x
 

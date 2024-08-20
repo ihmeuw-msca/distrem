@@ -16,6 +16,12 @@ ENSEMBLE_POS_DRAWS = EnsembleModel(
     variance=1,
 ).rvs(size=100)
 
+ENSEMBLE_POS_DRAWS2 = EnsembleModel(
+    distributions=["exponential", "lognormal", "fisk"],
+    weights=[0.3, 0.5, 0.1],
+    mean=40,
+    variance=5,
+)
 # ENSEMBLE_POS_DRAWS = EnsembleModel(
 #     distributions=["exponential", "lognormal"],
 #     weights=[0.5, 0.5],
@@ -25,26 +31,47 @@ ENSEMBLE_POS_DRAWS = EnsembleModel(
 
 
 def test_1_dist():
-    model = EnsembleFitter(["normal"], None)
+    model = EnsembleFitter(["normal"], "L2")
     res = model.fit(STD_NORMAL_DRAWS)
     print(res.weights)
     assert np.isclose(res.weights[0], 1)
 
-    wrong_model = EnsembleFitter(["normal", "gumbel"], None)
+    wrong_model = EnsembleFitter(["normal", "gumbel"], "L2")
     res = wrong_model.fit(STD_NORMAL_DRAWS)
     print(res.weights)
     assert np.allclose(res.weights, [1, 0])
 
 
 def test_2_real_line_dists():
-    model1 = EnsembleFitter(["normal", "gumbel"], None)
+    model1 = EnsembleFitter(["normal", "gumbel"], "L2")
     res1 = model1.fit(ENSEMBLE_RL_DRAWS)
     print(res1.weights)
     assert np.allclose(res1.weights, [0.7, 0.3])
 
 
-def test_2_positive_dists():
-    model2 = EnsembleFitter(["exponential", "lognormal"], None)
+def test_2_positive_dists_L1():
+    model2 = EnsembleFitter(["exponential", "lognormal"], "L1")
     res2 = model2.fit(ENSEMBLE_POS_DRAWS)
     print(res2.weights)
     assert np.allclose(res2.weights, [0.5, 0.5])
+
+
+def test_2_positive_dists_L2():
+    model2 = EnsembleFitter(["exponential", "lognormal"], "L2")
+    res2 = model2.fit(ENSEMBLE_POS_DRAWS)
+    print(res2.weights)
+    assert np.allclose(res2.weights, [0.5, 0.5])
+
+
+def test_2_positive_dists_KS():
+    model2 = EnsembleFitter(["exponential", "lognormal"], "KS")
+    res2 = model2.fit(ENSEMBLE_POS_DRAWS)
+    print(res2.weights)
+    assert np.allclose(res2.weights, [0.5, 0.5])
+
+
+def test_3_positive_dists_KS():
+    model2 = EnsembleFitter(["exponential", "lognormal", "fisk"], "KS")
+    res2 = model2.fit(ENSEMBLE_POS_DRAWS)
+    print(res2.weights)
+    assert np.allclose(res2.weights, [0.9, 0.05, 0.05])
