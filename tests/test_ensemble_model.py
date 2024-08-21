@@ -18,7 +18,7 @@ ENSEMBLE_POS_DRAWS = EnsembleModel(
 
 ENSEMBLE_POS_DRAWS2 = EnsembleModel(
     distributions=["exponential", "lognormal", "fisk"],
-    weights=[0.3, 0.5, 0.1],
+    weights=[0.3, 0.5, 0.2],
     mean=40,
     variance=5,
 )

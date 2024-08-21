@@ -323,8 +323,7 @@ class EnsembleFitter:
         EnsembleResult
             result of ensemble distribution fitting
         """
-        support = next(iter(self.support))
-        if np.min(data) < support[0] or support[1] < np.max(data):
+        if np.min(data) < self.support[0] or self.support[1] < np.max(data):
             raise ValueError(
                 "data exceeds bounds of the support of your ensemble"
             )
