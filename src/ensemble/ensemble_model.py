@@ -360,6 +360,7 @@ class EnsembleFitter:
             # options={"disp": True},
         )
         fitted_weights = minimizer_result.x
+        fitted_weights = fitted_weights / np.sum(fitted_weights)
 
         res = EnsembleResult(
             # weights=tuple(
