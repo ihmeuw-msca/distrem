@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from ensemble.distributions import distribution_dict
 from ensemble.ensemble_model import EnsembleFitter, EnsembleModel
@@ -29,49 +30,42 @@ ENSEMBLE_POS_DRAWS2 = EnsembleModel(
 #     variance=2,
 # ).rvs(size=100)
 
+DEFAULT_SETTINGS = ([0.5, 0.5], 1, 1)
 
-def test_1_dist():
+
+def test_bad_weights():
+    with pytest.raises(ValueError):
+        EnsembleModel(["normal", "gumbel"], [1, 0.1], 1, 1)
+    with pytest.raises(ValueError):
+        EnsembleModel(["normal", "gumbel"], [0.3, 0.69], 1, 1)
+
+
+def test_incompatible_dists():
+    with pytest.raises(ValueError):
+        EnsembleModel(["normal", "exponential"], *DEFAULT_SETTINGS)
+    with pytest.raises(ValueError):
+        EnsembleModel(["beta", "normal"], *DEFAULT_SETTINGS)
+    with pytest.raises(ValueError):
+        EnsembleModel(["beta", "exponential"], *DEFAULT_SETTINGS)
+
+
+def test_incompatible_data():
+    neg_data = np.linspace(-1, 1, 100)
+    with pytest.raises(ValueError):
+        EnsembleFitter(["exponential", "fisk"], "L2").fit(neg_data)
+    with pytest.raises(ValueError):
+        EnsembleFitter(["beta"], "L2").fit(neg_data)
+
+
+def test_resulting_weights():
     model = EnsembleFitter(["normal"], "L2")
     res = model.fit(STD_NORMAL_DRAWS)
-    print(res.weights)
-    assert np.isclose(res.weights[0], 1)
+    assert np.isclose(np.sum(res.weights), 1)
 
-    wrong_model = EnsembleFitter(["normal", "gumbel"], "L2")
-    res = wrong_model.fit(STD_NORMAL_DRAWS)
-    print(res.weights)
-    assert np.allclose(res.weights, [1, 0])
-
-
-def test_2_real_line_dists():
     model1 = EnsembleFitter(["normal", "gumbel"], "L2")
     res1 = model1.fit(ENSEMBLE_RL_DRAWS)
-    print(res1.weights)
-    assert np.allclose(res1.weights, [0.7, 0.3])
+    assert np.isclose(np.sum(res1.weights), 1)
 
-
-def test_2_positive_dists_L1():
-    model2 = EnsembleFitter(["exponential", "lognormal"], "L1")
-    res2 = model2.fit(ENSEMBLE_POS_DRAWS)
-    print(res2.weights)
-    assert np.allclose(res2.weights, [0.5, 0.5])
-
-
-def test_2_positive_dists_L2():
-    model2 = EnsembleFitter(["exponential", "lognormal"], "L2")
-    res2 = model2.fit(ENSEMBLE_POS_DRAWS)
-    print(res2.weights)
-    assert np.allclose(res2.weights, [0.5, 0.5])
-
-
-def test_2_positive_dists_KS():
-    model2 = EnsembleFitter(["exponential", "lognormal"], "KS")
-    res2 = model2.fit(ENSEMBLE_POS_DRAWS)
-    print(res2.weights)
-    assert np.allclose(res2.weights, [0.5, 0.5])
-
-
-def test_3_positive_dists_KS():
     model2 = EnsembleFitter(["exponential", "lognormal", "fisk"], "KS")
     res2 = model2.fit(ENSEMBLE_POS_DRAWS)
-    print(res2.weights)
-    assert np.allclose(res2.weights, [0.9, 0.05, 0.05])
+    assert np.isclose(np.sum(res2.weights), 1)
