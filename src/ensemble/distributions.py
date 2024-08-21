@@ -278,9 +278,6 @@ class Beta(Distribution):
         self._scipy_dist = stats.beta(a=alpha, b=beta)
 
 
-# exp, gamma, invgamma, llogis, gumbel, weibull, lognormal, normal, mgamma, mgumbel, beta
-
-# TODO: change strings later on
 distribution_dict = {
     "exponential": Exponential,
     "gamma": Gamma,
@@ -295,8 +292,6 @@ distribution_dict = {
 
 
 ### HELPER FUNCTIONS
-# the following functions give a crude solution to negative means which surely mean the data is negative
-# what about data that is negative, but still has a positive mean?
 def positive_support(mean: float) -> None:
     if mean < 0:
         raise ValueError("This distribution is only supported on [0, np.inf)")

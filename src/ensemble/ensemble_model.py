@@ -38,7 +38,9 @@ class EnsembleModel:
         mean: float,
         variance: float,
     ):
+        _check_valid_ensemble(distributions, weights)
         self.support = _check_supports_match(distributions)
+
         self.distributions = distributions
         self.my_objs = []
         for distribution in distributions:
@@ -258,8 +260,7 @@ class EnsembleFitter:
         self.distributions = distributions
         self.objective = objective
 
-    # TODO: IS PASSING IN THE OBJECTIVE NECESSARY? IT'S ALR A FIELD
-    def objective_func(self, vec: np.ndarray, objective: str) -> float:
+    def objective_func(self, vec: np.ndarray) -> float:
         """applies different penalties to vector of distances given by user
 
         Parameters
@@ -279,7 +280,7 @@ class EnsembleFitter:
         NotImplementedError
             because the other ones havent been implemented yet lol
         """
-        match objective:
+        match self.objective:
             case "L1":
                 return linalg.norm(vec, 1)
             case "L2":
@@ -306,7 +307,7 @@ class EnsembleFitter:
         float
             _description_
         """
-        return self.objective_func(ecdf - cdfs @ weights, self.objective)
+        return self.objective_func(ecdf - cdfs @ weights)
 
     def fit(self, data: npt.ArrayLike) -> EnsembleResult:
         """fits weighted sum of CDFs corresponding to distributions in
@@ -322,7 +323,11 @@ class EnsembleFitter:
         EnsembleResult
             result of ensemble distribution fitting
         """
-        # TODO: SWITCH CASE STATEMENT FOR BOUNDS OF DATA NOT MATCHING THE ELEMENT OF SELF.SUPPORTS
+        support = next(iter(self.support))
+        if np.min(data) < support[0] or support[1] < np.max(data):
+            raise ValueError(
+                "data exceeds bounds of the support of your ensemble"
+            )
         # sample stats, ecdf
         sample_mean = np.mean(data)
         sample_variance = np.var(data, ddof=1)
@@ -382,6 +387,15 @@ class EnsembleFitter:
 ### HELPER FUNCTIONS
 
 
+def _check_valid_ensemble(distributions: List[str], weights: List[float]):
+    if len(distributions) != len(weights):
+        raise ValueError(
+            "there must be the same number of distributions as weights!"
+        )
+    if not np.isclose(np.sum(weights), 1):
+        raise ValueError("weights must sum to 1")
+
+
 def _check_supports_match(distributions: List[str]) -> Tuple[float, float]:
     """checks that supports of all distributions given are *exactly* the same
 
@@ -405,11 +419,11 @@ def _check_supports_match(distributions: List[str]) -> Tuple[float, float]:
     supports = set()
     for distribution in distributions:
         supports.add(distribution_dict[distribution]().support())
-    # TODO: HOW SHOULD WE TELL THE USER WHICH DISTRIBUTION IS THE "TROUBLEMAKER"?
     if len(supports) != 1:
         raise ValueError(
             "the provided list of distributions do not all have the same support: "
             + str(supports)
+            + "please check the documentation for the supports of the distributions you've specified"
         )
     # if the return statement is reached, the `set()` named `supports` will only
     # ever have one support within it, which is popped out and returned
