@@ -331,49 +331,39 @@ class EnsembleFitter:
         sample_mean = np.mean(data)
         sample_variance = np.var(data, ddof=1)
         ecdf = stats.ecdf(data).cdf.probabilities
-
-        # may be able to condense into 1 line if ub and lb are not used elsewhere
-        # support_lb = np.min(data)
-        # support_ub = np.max(data)
-        # support = np.linspace(support_lb, support_ub, len(data))
         equantiles = stats.ecdf(data).cdf.quantiles
 
         # fill matrix with cdf values over support of data
         num_distributions = len(self.distributions)
         cdfs = np.zeros((len(data), num_distributions))
-        # pdfs = np.zeros((len(data), num_distributions))
         for i in range(num_distributions):
             curr_dist = distribution_dict[self.distributions[i]](
                 sample_mean, sample_variance
             )
             cdfs[:, i] = curr_dist.cdf(equantiles)
-            # pdfs[:, i] = curr_dist.pdf(equantiles)
 
         # initialize equal weights for all dists and optimize
         initial_guess = np.zeros(num_distributions) + 1 / num_distributions
         bounds = tuple((0, 1) for i in range(num_distributions))
-        # minimizer_result = ScipyBoundedMinimize(
-        #     fun=self.ensemble_func, args=(ecdf, cdfs), method="l-bfgs-b"
-        # ).run(initial_guess, bounds=bounds)
-        # fitted_weights = minimizer_result.params
         minimizer_result = opt.minimize(
             fun=self.ensemble_func,
             x0=initial_guess,
             args=(ecdf, cdfs),
             bounds=bounds,
-            # options={"disp": True},
+            options={"disp": True},
         )
         fitted_weights = minimizer_result.x
+
+        # attempted JAX implementation
+        # minimizer_result = ScipyBoundedMinimize(
+        #     fun=self.ensemble_func, args=(ecdf, cdfs), method="l-bfgs-b"
+        # ).run(initial_guess, bounds=bounds)
+        # fitted_weights = minimizer_result.params
+
+        # re-scale weights
         fitted_weights = fitted_weights / np.sum(fitted_weights)
 
         res = EnsembleResult(
-            # weights=tuple(
-            #     (distribution, weight)
-            #     for distribution, weight in zip(
-            #         self.distributions, fitted_weights
-            #     )
-            # ),
-            # distributions=self.distributions,
             weights=fitted_weights,
             ensemble_model=EnsembleModel(
                 self.distributions, fitted_weights, sample_mean, sample_variance
@@ -424,6 +414,6 @@ def _check_supports_match(distributions: List[str]) -> Tuple[float, float]:
             + str(supports)
             + "please check the documentation for the supports of the distributions you've specified"
         )
-    # if the return statement is reached, the `set()` named `supports` will only
-    # ever have one support within it, which is popped out and returned
+    # note: if the return statement is reached, the `set()` named `supports`
+    # will only ever have one support within it, which is popped out and returned
     return supports.pop()

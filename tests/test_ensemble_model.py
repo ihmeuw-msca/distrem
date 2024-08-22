@@ -23,12 +23,7 @@ ENSEMBLE_POS_DRAWS2 = EnsembleModel(
     mean=40,
     variance=5,
 )
-# ENSEMBLE_POS_DRAWS = EnsembleModel(
-#     distributions=["exponential", "lognormal"],
-#     weights=[0.5, 0.5],
-#     mean=5,
-#     variance=2,
-# ).rvs(size=100)
+
 
 DEFAULT_SETTINGS = ([0.5, 0.5], 1, 1)
 
