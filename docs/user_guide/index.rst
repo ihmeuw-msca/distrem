@@ -5,18 +5,16 @@ User guide
    :hidden:
    :numbered:
 
-   project_organization
-   style_guide
-   testing
-   documentation
-   cicd
+   ensemble_fitting
+   ensemble_model
 
 .. note::
 
-   Please provide some intructions of how to read the user guide here.
-   For example where should a user start and what order of reading should one follow.
+   Follow the titles in the sidebar for more information on the use case you are interested in
+   to use this user guide
 
 
-This user guide introduces and explains some key concepts when building a Python package.
-If you are a new user starting out your Python package journey, we recommend you to start with the
-:ref:`Project organization` and read each section in order.
+This user guide introduces and explains some key concepts behind ensemble distributions. The 2 main
+use cases implemented in this package are to fit an ensemble distribution to a set of data using
+the CDF and the other is to create an ensemble distribution object from which you can take draws,
+get the CDF, PDF, etc...

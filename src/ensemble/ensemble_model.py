@@ -1,5 +1,6 @@
 from typing import List, Tuple, Union
 
+import cvxpy as cp
 import numpy as np
 import numpy.typing as npt
 import scipy.linalg as linalg
@@ -186,8 +187,26 @@ class EnsembleModel:
         #     ensemble_cdf(x) - p, where p is aforementioned Unif(0, 1) sample
         #   return quantiles which minimize the objective function (i.e. which
         #     values of x minimize ensemble_cdf(x) - q)
-        unif_samp = stats.uniform.rvs(size=size)
-        return self.ppf(unif_samp)
+        # unif_samp = stats.uniform.rvs(size=size)
+        # return self.ppf(unif_samp)
+        # res = np.emp()
+        dist_counts = np.random.multinomial(size, self.weights)
+        # for dist, counts in zip(self.distributions, dist_choices):
+        #     res.extend(
+        #         distribution_dict[dist](self.mean, self.variance).rvs(
+        #             size=counts
+        #         )
+        #     )
+        samples = np.hstack(
+            [
+                distribution_dict[dist](self.mean, self.variance).rvs(
+                    size=counts
+                )
+                for dist, counts in zip(self.distributions, dist_counts)
+            ]
+        )
+        np.random.shuffle(samples)
+        return samples
 
     def stats_temp(
         self, moments: str = "mv"
@@ -282,11 +301,14 @@ class EnsembleFitter:
         """
         match self.objective:
             case "L1":
-                return linalg.norm(vec, 1)
+                # return linalg.norm(vec, 1)
+                return cp.norm(vec, 1)
             case "L2":
-                return linalg.norm(vec, 2) ** 2
+                # return linalg.norm(vec, 2) ** 2
+                return cp.sum_squares(vec)
             case "KS":
-                return np.max(np.abs(vec))
+                # return np.max(np.abs(vec))
+                return cp.norm(vec, "inf")
 
     def ensemble_func(
         self, weights: List[float], ecdf: np.ndarray, cdfs: np.ndarray
@@ -343,16 +365,25 @@ class EnsembleFitter:
             cdfs[:, i] = curr_dist.cdf(equantiles)
 
         # initialize equal weights for all dists and optimize
-        initial_guess = np.zeros(num_distributions) + 1 / num_distributions
-        bounds = tuple((0, 1) for i in range(num_distributions))
-        minimizer_result = opt.minimize(
-            fun=self.ensemble_func,
-            x0=initial_guess,
-            args=(ecdf, cdfs),
-            bounds=bounds,
-            options={"disp": True},
-        )
-        fitted_weights = minimizer_result.x
+        # initial_guess = np.zeros(num_distributions) + 1 / num_distributions
+        # bounds = tuple((0, 1) for i in range(num_distributions))
+        # minimizer_result = opt.minimize(
+        #     fun=self.ensemble_func,
+        #     x0=initial_guess,
+        #     args=(ecdf, cdfs),
+        #     bounds=bounds,
+        #     options={"disp": True},
+        # )
+        # fitted_weights = minimizer_result.x
+
+        # attempt CVXPY implementation
+        w = cp.Variable(num_distributions)
+        # objective = cp.Minimize(self.ensemble_func)
+        objective = cp.Minimize(self.objective_func(ecdf - cdfs @ w))
+        constraints = [0 <= w, cp.sum(w) == 1]
+        prob = cp.Problem(objective, constraints)
+        result = prob.solve()
+        # print(w.value)
 
         # attempted JAX implementation
         # minimizer_result = ScipyBoundedMinimize(
@@ -361,7 +392,8 @@ class EnsembleFitter:
         # fitted_weights = minimizer_result.params
 
         # re-scale weights
-        fitted_weights = fitted_weights / np.sum(fitted_weights)
+        # fitted_weights = fitted_weights / np.sum(fitted_weights)
+        fitted_weights = w.value
 
         res = EnsembleResult(
             weights=fitted_weights,

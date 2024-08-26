@@ -7,19 +7,16 @@ Getting started
    installation
    quickstart
 
-.. note::
+Welcome to ensemble!
+--------------------
 
-    This page can be used to introduce some basic concepts to beginners.
-    It should be welcoming and not technical.
-    You can also use it address some of the pre-requisites for the package.
+ensemble allows you to fit a weighted linear combination of distributions to individual-level data,
+or create an ensemble distribution given mean, variance, the distributions you want to include, and
+their respective weights.
 
+Note: We define an ensemble distribution in this package to be a weighted sum of individual named
+distributions. This resulting ensemble distribution must have weights that sum to 1 in order to
+satisfy the property that a probability density function (PDF) must integrate to 1.
 
-Welcome to PyPkg!
------------------
-
-PyPkg package is a template package.
-It tries to show the basic bone structure of a package with minimal functionality.
-It is meant to be used as a starting point for new packages.
-
-For installing the package please check :ref:`Installing PyPkg`.
+For installing the package please check :ref:`Installing distrx`.
 For a simple example please check :ref:`Quickstart`.
