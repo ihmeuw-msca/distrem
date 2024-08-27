@@ -2,60 +2,63 @@
 Ensemble Model
 ==============
 
-There are currently 4 univariate transformations implemented in distrx:
-    * log
-    * logit
-    * exp
-    * expit
+There are currently 8 named distributions that are available for use in this package. See
+:code:`distributions.py` for implementation details if desired. In general, you do **not** have to
+interact with this file to be able to perform the functions described in the documentation.
 
-These transformations are implemented using the first order delta method, which works in these
-cases as all of the transformations listed are continuous and differentiable. To briefly summarize,
-the delta method transforms the variance by multiplying the original standard error by the first
-order Taylor expansion of the transformation function.
+1. Exponential
+2. Gamma
+3. Inverse Gamma
+4. Fisk (aka Log-Logistic)
+5. Gumbel
+6. Log-Normal
+7. Normal
+8. Beta
 
-Example: Log Transform
-----------------------
+These distributions have "supports" that differ from each other. A support, for our purposes, can be
+thought of as the x values that are compatible with some given distribution. For example, the Normal
+distribution is supported on the entire real line, so it can take negative x values, but the Gamma
+is only supported on (0, :math:`\infty`), so it cannot take negative values. **Recall: you are not
+permitted to use distributions with differing supports in the same ensemble.**
 
-Suppose that we have some means and standard deviations (SDs) of systolic blood pressure (SBP) from
-several different samples. The data may look something like the following,
+After creating an EnsembleModel object, you can use various functions akin to those from scipy's
+:code:`rv_continuous` class. These functions are:
 
-.. csv-table::
-   :header: mean, SD, n
-   :widths: 10, 10, 10
-   :align: center
+* :code:`pdf()`
+* :code:`cdf()`
+* :code:`ppf()`
+* :code:`rvs()`
+* :code:`stats_temp()`
 
-   122, 10, 106
-   140, 14, 235
-   113, 8, 462
-   124, 15, 226
-   134, 7, 509
+Example: Normal/Gumbel ensemble
+-------------------------------
 
-and our goal is to obtain the appropriate standard errors (SEs) for the mean after applying the log
-transform.
+When creating an ensemble distribution, you are required to provide the following:
 
-Since we are interested in the transformed SEs and *not* the transformed SDs, we must provide the
-SEs to distrx. **If you already have SEs and are performing the same task, you should skip this
-step!**
+* list of distributions
+* list of weights
+* mean
+* variance
 
-.. code-block:: python
-
-    df["SE"] = df["SD"] / df["n"]
-
-Now, import the appropriate function from distrx.
-
-.. code-block:: python
-
-    from distrx import transform_univariate
-
-Different transformation functions can be chosen through specifying a string parameter of which
-transform you would like to apply to your data. In this case, it is the following.
+In code form, this looks like...
 
 .. code-block:: python
 
-    mu_tx, sigma_tx = transform_univariate(mu=df["means"],
-                                           sigma=df["SE"],
-                                           transform="log")
+    from ensemble.ensemble_model import EnsembleModel
 
-``mu_tx`` and ``sigma_tx`` are simply the means with the transformation function applied and their
-appropriately transformed standard errors, respectively. If a CI for the mean is desired, simply
-use ``mu_tx +/- Q * sigma_tx``.
+    ensemble_ex = EnsembleModel(
+        distributions=["normal", "gumbel"],
+        weights=[0.7, 0.3],
+        mean=-4
+        variance=5
+    )
+
+Now, to create 100 draws from this ensemble, or get its PDF, you can do the following...
+
+
+.. code-block:: python
+
+    # create 100 draws from ensemble
+    ensemble_draws = enesmble_ex.rvs(size=100)
+    # return pdf values at x values [-3, 0, 1]
+    ensemble_pdf = ensemble_ex.pdf(x=[-3, 0, 1])
