@@ -168,7 +168,7 @@ class Fisk(Distribution):
         alpha, beta = np.abs(optim_params.x)
         # parameterization notes: numpy's c is wikipedia's beta, numpy's scale is wikipedia's alpha
         # additional note: analytical solution doesn't work b/c dependent on derivative
-        print("from optim: ", alpha, beta)
+        # print("from optim: ", alpha, beta)
         self._scipy_dist = stats.fisk(c=beta, scale=alpha)
 
     def _shape_scale(self, x: list, samp_mean: float, samp_var: float) -> None:
