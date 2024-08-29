@@ -7,6 +7,7 @@ User guide
 
    ensemble_fitting
    ensemble_model
+   concepts
 
 .. note::
 

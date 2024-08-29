@@ -44,9 +44,9 @@ In code form, this looks like...
 
 .. code-block:: python
 
-    from ensemble.ensemble_model import EnsembleModel
+    from ensemble.model import EnsembleDistribution
 
-    ensemble_ex = EnsembleModel(
+    ensemble_ex = EnsembleDistribution(
         distributions=["normal", "gumbel"],
         weights=[0.7, 0.3],
         mean=-4

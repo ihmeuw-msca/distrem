@@ -17,8 +17,8 @@ cumulative distribution function (eCDF) and the CDF of the ensemble subject to s
 The penalties currently implemented are as follows:
 
 * :code:`"L1"`: L1 norm
-* :code:`"L2"`: squared L2 norm aka sum of squares
-* :code:`"KS"`: aka infinity norm, the Kolmogorov-Smirnoff distances
+* :code:`sum_squares"`: sum of squares
+* :code:`"KS"`: the Kolmogorov-Smirnoff distance, A.K.A. infinity norm
 
 Finally, the function of interest for this use case is the :code:`fit()` function.
 
@@ -32,7 +32,7 @@ with a positive support to fit this data.
 .. code-block:: python
 
     import scipy.stats as stats
-    from ensemble.ensemble_model import EnsembleFitter
+    from ensemble.model import EnsembleFitter
 
     SBP_vals = stats.norm(loc=120, scale=7).rvs(size=100)
     model = EnsembleFitter(
@@ -41,13 +41,13 @@ with a positive support to fit this data.
     )
     res = model.fit(SBP_vals)
 
-:code:`res` contains an array of fitted weights as well as an :code:`EnsembleModel` object that has
-already been initialized with the distributions provided to :code:`model`. They can be accessed as
-follows:
+:code:`res` contains an array of fitted weights as well as an :code:`EnsembleDistribution` object
+that has already been initialized with the distributions provided to :code:`model`. They can be
+accessed as follows:
 
 .. code-block:: python
     # fitted weights
     fitted_weights = res.weights
 
     # fitted ensemble
-    fitted_ensemble = res.ensemble_model
+    fitted_ensemble = res.ensemble_distribution

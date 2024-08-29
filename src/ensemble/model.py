@@ -236,9 +236,11 @@ class EnsembleResult:
     weights: Tuple[str, float]
     ensemble_model: EnsembleDistribution
 
-    def __init__(self, weights, ensemble_model: EnsembleDistribution) -> None:
+    def __init__(
+        self, weights, ensemble_distribution: EnsembleDistribution
+    ) -> None:
         self.weights = weights
-        self.ensemble_model = ensemble_model
+        self.ensemble_distribution = ensemble_distribution
 
 
 class EnsembleFitter:
@@ -261,7 +263,7 @@ class EnsembleFitter:
         self.distributions = distributions
         self.objective = objective
 
-    def objective_func(self, vec: np.ndarray) -> float:
+    def _objective_func(self, vec: np.ndarray) -> float:
         """applies different penalties to vector of distances given by user
 
         Parameters
@@ -284,12 +286,12 @@ class EnsembleFitter:
         match self.objective:
             case "L1":
                 return cp.norm(vec, 1)
-            case "L2":
+            case "sum_squares":
                 return cp.sum_squares(vec)
             case "KS":
                 return cp.norm(vec, "inf")
 
-    def ensemble_func(
+    def _ensemble_func(
         self, weights: List[float], ecdf: np.ndarray, cdfs: np.ndarray
     ) -> float:
         """
@@ -308,7 +310,7 @@ class EnsembleFitter:
         float
             _description_
         """
-        return self.objective_func(ecdf - cdfs @ weights)
+        return self._objective_func(ecdf - cdfs @ weights)
 
     def fit(self, data: npt.ArrayLike) -> EnsembleResult:
         """fits weighted sum of CDFs corresponding to distributions in
@@ -345,7 +347,7 @@ class EnsembleFitter:
 
         # CVXPY implementation
         w = cp.Variable(num_distributions)
-        objective = cp.Minimize(self.objective_func(ecdf - cdfs @ w))
+        objective = cp.Minimize(self._objective_func(ecdf - cdfs @ w))
         constraints = [0 <= w, cp.sum(w) == 1]
         prob = cp.Problem(objective, constraints)
         prob.solve()
@@ -354,7 +356,7 @@ class EnsembleFitter:
 
         res = EnsembleResult(
             weights=fitted_weights,
-            ensemble_model=EnsembleDistribution(
+            ensemble_distribution=EnsembleDistribution(
                 self.distributions, fitted_weights, sample_mean, sample_variance
             ),
         )
