@@ -3,16 +3,13 @@ from typing import List, Tuple, Union
 import cvxpy as cp
 import numpy as np
 import numpy.typing as npt
-import scipy.linalg as linalg
 import scipy.optimize as opt
 import scipy.stats as stats
 
 from ensemble.distributions import distribution_dict
 
-# from jaxopt import ScipyBoundedMinimize
 
-
-class EnsembleModel:
+class EnsembleDistribution:
     """Ensemble distribution object that provides limited functionality similar
     to scipy's rv_continuous class both in implementation and features. Current
     features include: pdf, cdf, ppf, rvs (random draws), and stats (first 2
@@ -66,12 +63,7 @@ class EnsembleModel:
             distance between ensemble CDF and lower tail probability
 
         """
-        return (
-            self.cdf(
-                x  # , self.distributions, self.weights, self.mean, self.variance
-            )
-            - p
-        )
+        return self.cdf(x) - p
 
     def _ppf_single(self, p: float) -> float:
         """Finds value to minimize distance between ensemble CDF and lower tail
@@ -90,7 +82,6 @@ class EnsembleModel:
 
         """
         factor = 10.0
-        # left, right = self.supports.pop()
         left, right = self.support
 
         if np.isinf(left):
@@ -187,16 +178,7 @@ class EnsembleModel:
         #     ensemble_cdf(x) - p, where p is aforementioned Unif(0, 1) sample
         #   return quantiles which minimize the objective function (i.e. which
         #     values of x minimize ensemble_cdf(x) - q)
-        # unif_samp = stats.uniform.rvs(size=size)
-        # return self.ppf(unif_samp)
-        # res = np.emp()
         dist_counts = np.random.multinomial(size, self.weights)
-        # for dist, counts in zip(self.distributions, dist_choices):
-        #     res.extend(
-        #         distribution_dict[dist](self.mean, self.variance).rvs(
-        #             size=counts
-        #         )
-        #     )
         samples = np.hstack(
             [
                 distribution_dict[dist](self.mean, self.variance).rvs(
@@ -252,9 +234,9 @@ class EnsembleResult:
     """
 
     weights: Tuple[str, float]
-    ensemble_model: EnsembleModel
+    ensemble_model: EnsembleDistribution
 
-    def __init__(self, weights, ensemble_model: EnsembleModel) -> None:
+    def __init__(self, weights, ensemble_model: EnsembleDistribution) -> None:
         self.weights = weights
         self.ensemble_model = ensemble_model
 
@@ -301,13 +283,10 @@ class EnsembleFitter:
         """
         match self.objective:
             case "L1":
-                # return linalg.norm(vec, 1)
                 return cp.norm(vec, 1)
             case "L2":
-                # return linalg.norm(vec, 2) ** 2
                 return cp.sum_squares(vec)
             case "KS":
-                # return np.max(np.abs(vec))
                 return cp.norm(vec, "inf")
 
     def ensemble_func(
@@ -364,40 +343,18 @@ class EnsembleFitter:
             )
             cdfs[:, i] = curr_dist.cdf(equantiles)
 
-        # initialize equal weights for all dists and optimize
-        # initial_guess = np.zeros(num_distributions) + 1 / num_distributions
-        # bounds = tuple((0, 1) for i in range(num_distributions))
-        # minimizer_result = opt.minimize(
-        #     fun=self.ensemble_func,
-        #     x0=initial_guess,
-        #     args=(ecdf, cdfs),
-        #     bounds=bounds,
-        #     options={"disp": True},
-        # )
-        # fitted_weights = minimizer_result.x
-
-        # attempt CVXPY implementation
+        # CVXPY implementation
         w = cp.Variable(num_distributions)
-        # objective = cp.Minimize(self.ensemble_func)
         objective = cp.Minimize(self.objective_func(ecdf - cdfs @ w))
         constraints = [0 <= w, cp.sum(w) == 1]
         prob = cp.Problem(objective, constraints)
-        result = prob.solve()
-        # print(w.value)
+        prob.solve()
 
-        # attempted JAX implementation
-        # minimizer_result = ScipyBoundedMinimize(
-        #     fun=self.ensemble_func, args=(ecdf, cdfs), method="l-bfgs-b"
-        # ).run(initial_guess, bounds=bounds)
-        # fitted_weights = minimizer_result.params
-
-        # re-scale weights
-        # fitted_weights = fitted_weights / np.sum(fitted_weights)
         fitted_weights = w.value
 
         res = EnsembleResult(
             weights=fitted_weights,
-            ensemble_model=EnsembleModel(
+            ensemble_model=EnsembleDistribution(
                 self.distributions, fitted_weights, sample_mean, sample_variance
             ),
         )

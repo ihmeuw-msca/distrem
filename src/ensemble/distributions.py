@@ -157,6 +157,7 @@ class Fisk(Distribution):
 
     def _create_scipy_dist(self):
         positive_support(self.mean)
+
         optim_params = opt.minimize(
             fun=self._shape_scale,
             # start beta at 1.1 and solve for alpha
@@ -167,6 +168,7 @@ class Fisk(Distribution):
         alpha, beta = np.abs(optim_params.x)
         # parameterization notes: numpy's c is wikipedia's beta, numpy's scale is wikipedia's alpha
         # additional note: analytical solution doesn't work b/c dependent on derivative
+        print("from optim: ", alpha, beta)
         self._scipy_dist = stats.fisk(c=beta, scale=alpha)
 
     def _shape_scale(self, x: list, samp_mean: float, samp_var: float) -> None:
@@ -193,7 +195,7 @@ class GumbelR(Distribution):
         self._scipy_dist = stats.gumbel_r(loc=loc, scale=scale)
 
 
-# hopelessly broken
+# hopelessly broken (sort of)
 class Weibull(Distribution):
     """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.weibull_min.html#scipy.stats.weibull_min"""
 
@@ -202,26 +204,21 @@ class Weibull(Distribution):
 
     def _create_scipy_dist(self) -> None:
         positive_support(self.mean)
-        optim_params = opt.minimize(
-            fun=self._shape_scale,
-            # ideally can invert gamma function for k, then use mean / sd as a guess for lambda
-            x0=[self.mean / gamma_func(1 + 1 / 1.5), 1.5],
-            args=(self.mean, self.variance),
-            options={"disp": True},
-        )
-        lambda_, k = np.abs(optim_params.x)
-        print("params from optim: ", lambda_, k)
-        self._scipy_dist = stats.weibull_min(c=k, scale=lambda_)
 
-    def _shape_scale(self, x: list, samp_mean: float, samp_var: float) -> float:
-        # TODO: TAKE A LOOK AT JAX SINCE IT DOES AUTOMATIC DERIVATIVES
-        lambda_ = x[0]
-        k = x[1]
-        mean_guess = lambda_ * gamma_func(1 + (1 / k))
-        variance_guess = lambda_**2 * (
-            gamma_func(1 + (2 / k) - gamma_func(1 + (1 / k)) ** 2)
+        # https://real-statistics.com/distribution-fitting/method-of-moments/method-of-moments-weibull/
+        k = opt.root_scalar(self._func, x0=0.5, method="newton")
+        lambda_ = self.mean / gamma_func(1 + 1 / k.root)
+
+        # most likely a parameterization issue
+        self._scipy_dist = stats.weibull_min(c=k.root, scale=lambda_)
+
+    def _func(self, k: float) -> None:
+        return (
+            np.log(1 + (2 / k))
+            - 2 * np.log(gamma_func(1 + (1 / k)))
+            - np.log(self.variance + self.mean**2)
+            + 2 * np.log(self.mean)
         )
-        return (mean_guess - samp_mean) ** 2 + (variance_guess - samp_var) ** 2
 
 
 # analytic sol (M.O.M. estimators)
