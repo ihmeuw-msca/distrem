@@ -291,8 +291,10 @@ class EnsembleFitter:
             case "KS":
                 return cp.norm(vec, "inf")
 
-    def _ensemble_func(
-        self, weights: List[float], ecdf: np.ndarray, cdfs: np.ndarray
+    def _ensemble_func_temp(
+        self,
+        weights: List[float],
+        pdfs,  # , ecdf: np.ndarray, cdfs: np.ndarray
     ) -> float:
         """
 
@@ -310,7 +312,8 @@ class EnsembleFitter:
         float
             _description_
         """
-        return self._objective_func(ecdf - cdfs @ weights)
+        # return self._objective_func(ecdf - cdfs @ weights)
+        return -1 * cp.sum(cp.log(pdfs @ weights))
 
     def fit(self, data: npt.ArrayLike) -> EnsembleResult:
         """fits weighted sum of CDFs corresponding to distributions in
@@ -335,15 +338,18 @@ class EnsembleFitter:
         sample_variance = np.var(data, ddof=1)
         ecdf = stats.ecdf(data).cdf.probabilities
         equantiles = stats.ecdf(data).cdf.quantiles
+        print(len(equantiles), ", num of empirical quantiles")
 
         # fill matrix with cdf values over support of data
         num_distributions = len(self.distributions)
         cdfs = np.zeros((len(data), num_distributions))
+        pdfs = np.zeros((len(data), num_distributions))
         for i in range(num_distributions):
             curr_dist = distribution_dict[self.distributions[i]](
                 sample_mean, sample_variance
             )
             cdfs[:, i] = curr_dist.cdf(equantiles)
+            pdfs[:, i] = curr_dist.pdf(equantiles)
 
         # CVXPY implementation
         w = cp.Variable(num_distributions)
@@ -353,6 +359,14 @@ class EnsembleFitter:
         prob.solve()
 
         fitted_weights = w.value
+
+        # ML implementation
+        # w = cp.Variable(num_distributions)
+        # objective = cp.Minimize(self._ensemble_func_temp(w, pdfs))
+        # constraints = [0 <= w, cp.sum(w) == 1]
+        # prob = cp.Problem(objective, constraints)
+        # prob.solve()
+        # fitted_weights = w.value
 
         res = EnsembleResult(
             weights=fitted_weights,
