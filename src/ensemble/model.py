@@ -338,7 +338,6 @@ class EnsembleFitter:
         sample_variance = np.var(data, ddof=1)
         ecdf = stats.ecdf(data).cdf.probabilities
         equantiles = stats.ecdf(data).cdf.quantiles
-        print(len(equantiles), ", num of empirical quantiles")
 
         # fill matrix with cdf values over support of data
         num_distributions = len(self.distributions)

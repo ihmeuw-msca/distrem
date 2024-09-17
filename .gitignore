@@ -130,5 +130,5 @@ dmypy.json
 
 # Misc.
 .DS_Store
-cleaned_individual_microdata_gbd2023_2024_03_18.csv
-microdata_2024_05_03.csv
+*.csv
+*.parquet
