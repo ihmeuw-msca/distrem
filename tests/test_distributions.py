@@ -13,12 +13,6 @@ from ensemble.distributions import (
     Weibull,
 )
 
-# from scipy.stats import expon
-
-
-# @pytest.mark.parametrize("a, b, expected", [(1, 2, 3), (2, 3, 5)])
-# def test_add(a, b, expected):
-#     assert add(a, b) == expected
 NEG_MEAN = -2
 BETA_MEAN = 0.5
 BETA_VARIANCE = 0.2
@@ -48,7 +42,7 @@ def test_invgamma():
     assert np.isclose(res[1], VARIANCE)
 
 
-# TODO: WRITE ADDITIONAL TESTS DUE TO NUMERICAL SOLUTION, CURRENTLY UNDERPERFORMING WITH MEAN = 1
+# TODO: WRITE ADDITIONAL TESTS DUE TO NUMERICAL SOLUTION, CURRENTLY UNDERPERFORMING WITH MEAN = [1, 3]
 def test_fisk():
     fisk = Fisk(MEAN, VARIANCE)
     res = fisk.stats(moments="mv")
