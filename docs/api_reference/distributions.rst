@@ -1,5 +1,5 @@
-pypkg.example
-=============
+ensemble.distributions
+======================
 
-.. automodule:: pypkg.example
+.. automodule:: ensemble.distributions
    :members:
