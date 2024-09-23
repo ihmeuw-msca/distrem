@@ -333,11 +333,23 @@ class EnsembleFitter:
             raise ValueError(
                 "data exceeds bounds of the support of your ensemble"
             )
+
+        if len(data) <= 1:
+            raise ValueError(
+                "you may only run this function with 2 or more data points"
+            )
+
         # sample stats, ecdf
         sample_mean = np.mean(data)
         sample_variance = np.var(data, ddof=1)
-        ecdf = stats.ecdf(data).cdf.probabilities
-        equantiles = stats.ecdf(data).cdf.quantiles
+        ecdf = stats.ecdf(data).cdf
+
+        # reintroduce duplicates into scipy's ecdf for fitting only
+        sorted_indices = np.argsort(data)
+        equantiles = data[sorted_indices]
+        eprobabilities = np.interp(
+            equantiles, ecdf.quantiles, ecdf.probabilities
+        )
 
         # fill matrix with cdf values over support of data
         num_distributions = len(self.distributions)
@@ -352,7 +364,7 @@ class EnsembleFitter:
 
         # CVXPY implementation
         w = cp.Variable(num_distributions)
-        objective = cp.Minimize(self._objective_func(ecdf - cdfs @ w))
+        objective = cp.Minimize(self._objective_func(eprobabilities - cdfs @ w))
         constraints = [0 <= w, cp.sum(w) == 1]
         prob = cp.Problem(objective, constraints)
         prob.solve()
