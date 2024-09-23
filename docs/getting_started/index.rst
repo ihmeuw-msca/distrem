@@ -24,5 +24,5 @@ must integrate to 1.
 * Current implementation forces mean and variance to be equivalent over each distribution, and
 forces ensemble mean and variance to match data, if relevant.
 
-For installing the package please check :ref:`Installing distrx`.
+For installing the package please check :ref:`Installing ensemble`.
 For a simple example please check :ref:`Quickstart`.
