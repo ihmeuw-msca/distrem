@@ -1,6 +1,7 @@
 from typing import List, Tuple, Union
 
 import cvxpy as cp
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import scipy.optimize as opt
@@ -219,6 +220,28 @@ class EnsembleDistribution:
         else:
             return tuple(res_list)
 
+    def plot(self):
+        """THIS IS A DEMONSTRATION FUNCTION. SEE DOCUMENTATION FOR MORE PRACTICAL PLOTS
+
+        plots the PDF and CDF of an ensemble distribution
+        """
+        fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+        scaling = 3 * np.sqrt(self.variance)
+        lb = np.max([self.support[0], self.mean - scaling])
+        ub = np.min([self.support[1], self.mean + scaling])
+        support = np.linspace(lb, ub, 100)
+        pdf = self.pdf(support)
+        cdf = self.cdf(support)
+        ax[0].plot(support, pdf)
+        ax[0].set_xlabel("DATA VALUES (UNITS)")
+        ax[0].set_ylabel("density")
+        ax[0].set_title("ensemble PDF")
+
+        ax[1].plot(support, cdf)
+        ax[1].set_xlabel("DATA VALUES (UNITS)")
+        ax[1].set_ylabel("density")
+        ax[1].set_title("ensemble CDF")
+
 
 class EnsembleResult:
     """Result from ensemble distribution fitting
@@ -333,11 +356,23 @@ class EnsembleFitter:
             raise ValueError(
                 "data exceeds bounds of the support of your ensemble"
             )
+
+        if len(data) <= 1:
+            raise ValueError(
+                "you may only run this function with 2 or more data points"
+            )
+
         # sample stats, ecdf
         sample_mean = np.mean(data)
         sample_variance = np.var(data, ddof=1)
-        ecdf = stats.ecdf(data).cdf.probabilities
-        equantiles = stats.ecdf(data).cdf.quantiles
+        ecdf = stats.ecdf(data).cdf
+
+        # reintroduce duplicates into scipy's ecdf for fitting only
+        sorted_indices = np.argsort(data)
+        equantiles = data[sorted_indices]
+        eprobabilities = np.interp(
+            equantiles, ecdf.quantiles, ecdf.probabilities
+        )
 
         # fill matrix with cdf values over support of data
         num_distributions = len(self.distributions)
@@ -352,7 +387,7 @@ class EnsembleFitter:
 
         # CVXPY implementation
         w = cp.Variable(num_distributions)
-        objective = cp.Minimize(self._objective_func(ecdf - cdfs @ w))
+        objective = cp.Minimize(self._objective_func(eprobabilities - cdfs @ w))
         constraints = [0 <= w, cp.sum(w) == 1]
         prob = cp.Problem(objective, constraints)
         prob.solve()

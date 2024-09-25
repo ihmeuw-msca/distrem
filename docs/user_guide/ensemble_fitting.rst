@@ -25,9 +25,9 @@ Finally, the function of interest for this use case is the :code:`fit()` functio
 Example: Fitting an Ensemble
 ----------------------------
 
-Suppose we have microdata for systolic blood pressure (SBP) from a certain population of young men
-in Seattle. Since SBP must be positive, let's use all the distributions (except the exponential)
-with a positive support to fit this data.
+Suppose we have microdata for systolic blood pressure (SBP) from a certain population of young
+people in Seattle. Since SBP must be positive, let's use all the distributions (except the
+exponential) with a positive support to fit this data.
 
 .. code-block:: python
 
