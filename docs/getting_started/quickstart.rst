@@ -28,4 +28,4 @@ Example
     # default plotting function for a demo visualization
     normal_gumbel.plot()
 
-**Please see :ref:`Plotting` for a practical guide on plotting with ensemble.**
+**Please see** :ref:`Plotting` **for a practical guide on plotting with ensemble.**
