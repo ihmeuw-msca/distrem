@@ -1,6 +1,7 @@
 from typing import List, Tuple, Union
 
 import cvxpy as cp
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import scipy.optimize as opt
@@ -218,6 +219,28 @@ class EnsembleDistribution:
             return res_list[0]
         else:
             return tuple(res_list)
+
+    def plot(self):
+        """THIS IS A DEMONSTRATION FUNCTION. SEE DOCUMENTATION FOR MORE PRACTICAL PLOTS
+
+        plots the PDF and CDF of an ensemble distribution
+        """
+        fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+        scaling = 3 * np.sqrt(self.variance)
+        lb = np.max([self.support[0], self.mean - scaling])
+        ub = np.min([self.support[1], self.mean + scaling])
+        support = np.linspace(lb, ub, 100)
+        pdf = self.pdf(support)
+        cdf = self.cdf(support)
+        ax[0].plot(support, pdf)
+        ax[0].set_xlabel("DATA VALUES (UNITS)")
+        ax[0].set_ylabel("density")
+        ax[0].set_title("ensemble PDF")
+
+        ax[1].plot(support, cdf)
+        ax[1].set_xlabel("DATA VALUES (UNITS)")
+        ax[1].set_ylabel("density")
+        ax[1].set_title("ensemble CDF")
 
 
 class EnsembleResult:
