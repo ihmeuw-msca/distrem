@@ -1,3 +1,4 @@
+import json
 from typing import List, Tuple, Union
 
 import cvxpy as cp
@@ -32,19 +33,24 @@ class EnsembleDistribution:
 
     def __init__(
         self,
-        distributions: List[str],
-        weights: List[float],
+        # distributions: List[str],
+        # weights: List[float],
+        named_weights: dict,
         mean: float,
         variance: float,
     ):
-        _check_valid_ensemble(distributions, weights)
-        self.support = _check_supports_match(distributions)
+        self._distributions = list(named_weights.keys())
+        self._weights = list(named_weights.values())
 
-        self.distributions = distributions
-        self.my_objs = []
-        for distribution in distributions:
-            self.my_objs.append(distribution_dict[distribution](mean, variance))
-        self.weights = weights
+        _check_valid_ensemble(self._distributions, self._weights)
+        self.support = _check_supports_match(self._distributions)
+
+        self.named_weights = named_weights
+        self.fitted_distributions = []
+        for distribution in self.named_weights.keys():
+            self.fitted_distributions.append(
+                distribution_dict[distribution](mean, variance)
+            )
         self.mean = mean
         self.variance = variance
 
@@ -179,13 +185,13 @@ class EnsembleDistribution:
         #     ensemble_cdf(x) - p, where p is aforementioned Unif(0, 1) sample
         #   return quantiles which minimize the objective function (i.e. which
         #     values of x minimize ensemble_cdf(x) - q)
-        dist_counts = np.random.multinomial(size, self.weights)
+        dist_counts = np.random.multinomial(size, self._weights)
         samples = np.hstack(
             [
                 distribution_dict[dist](self.mean, self.variance).rvs(
                     size=counts
                 )
-                for dist, counts in zip(self.distributions, dist_counts)
+                for dist, counts in zip(self._distributions, dist_counts)
             ]
         )
         np.random.shuffle(samples)
@@ -214,7 +220,7 @@ class EnsembleDistribution:
         if "v" in moments:
             res_list.append(self.variance)
 
-        res_list = [res[()] for res in res_list]
+        # res_list = [res[()] for res in res_list]
         if len(res_list) == 1:
             return res_list[0]
         else:
@@ -241,6 +247,62 @@ class EnsembleDistribution:
         ax[1].set_xlabel("DATA VALUES (UNITS)")
         ax[1].set_ylabel("density")
         ax[1].set_title("ensemble CDF")
+
+    def to_json(self, file_path: str, appending: bool = False) -> None:
+        """serializes EnsembleDistribution object as a JSON file with the option
+        to append instead of writing a new file
+
+        Parameters
+        ----------
+        file_path : str
+            path to file to write in
+        appending : bool, optional
+            option to append to existing file instead of overwrite,
+            by default False
+        """
+        distribution_summary = {
+            "named_weights": self.named_weights,
+            "mean": self.mean,
+            "variance": self.variance,
+        }
+
+        if appending:
+            with open(file_path, "r") as outfile:
+                existing = json.load(outfile)
+            with open(file_path, "w") as outfile:
+                existing.append(distribution_summary)
+                json.dump(existing, outfile)
+        else:
+            with open(file_path, "w") as outfile:
+                json.dump([distribution_summary], outfile)
+
+
+def from_json(file_path: str) -> List[EnsembleDistribution]:
+    """deserializes JSON object into list of Ensemble Distribution objects
+
+    Parameters
+    ----------
+    file_path : str
+        path to file that JSON object is stored in
+
+    Returns
+    -------
+    List[EnsembleDistribution]
+        list of EnsembleDistribution objects
+    """
+    with open(file_path, "r") as infile:
+        distribution_summaries = json.load(infile)
+
+    res = [None] * len(distribution_summaries)
+    for i in range(len(distribution_summaries)):
+        named_weights, mean, variance = (
+            distribution_summaries[i]["named_weights"],
+            distribution_summaries[i]["mean"],
+            distribution_summaries[i]["variance"],
+        )
+        res[i] = EnsembleDistribution(named_weights, mean, variance)
+
+    return res
 
 
 class EnsembleResult:
@@ -405,7 +467,9 @@ class EnsembleFitter:
         res = EnsembleResult(
             weights=fitted_weights,
             ensemble_distribution=EnsembleDistribution(
-                self.distributions, fitted_weights, sample_mean, sample_variance
+                dict(zip(self.distributions, fitted_weights)),
+                sample_mean,
+                sample_variance,
             ),
         )
 

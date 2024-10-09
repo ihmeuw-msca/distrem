@@ -132,3 +132,5 @@ dmypy.json
 .DS_Store
 *.csv
 *.parquet
+diabetes_demo.ipynb
+ensemble_fpg_plots.png
