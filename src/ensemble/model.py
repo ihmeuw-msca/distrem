@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 from typing import List, Tuple, Union
 
@@ -33,8 +35,6 @@ class EnsembleDistribution:
 
     def __init__(
         self,
-        # distributions: List[str],
-        # weights: List[float],
         named_weights: dict,
         mean: float,
         variance: float,
@@ -119,7 +119,9 @@ class EnsembleDistribution:
         """
         return sum(
             weight * distribution.pdf(x)
-            for distribution, weight in zip(self.my_objs, self.weights)
+            for distribution, weight in zip(
+                self.fitted_distributions, self._weights
+            )
         )
 
     def cdf(self, q: npt.ArrayLike) -> np.ndarray:
@@ -138,7 +140,9 @@ class EnsembleDistribution:
         """
         return sum(
             weight * distribution.cdf(q)
-            for distribution, weight in zip(self.my_objs, self.weights)
+            for distribution, weight in zip(
+                self.fitted_distributions, self._weights
+            )
         )
 
     def ppf(self, p: npt.ArrayLike) -> np.ndarray:
@@ -276,33 +280,61 @@ class EnsembleDistribution:
             with open(file_path, "w") as outfile:
                 json.dump([distribution_summary], outfile)
 
+    @classmethod
+    def from_json(cls, file_path: str) -> List[EnsembleDistribution]:
+        """deserializes JSON object into list of Ensemble Distribution objects
 
-def from_json(file_path: str) -> List[EnsembleDistribution]:
-    """deserializes JSON object into list of Ensemble Distribution objects
+        Parameters
+        ----------
+        file_path : str
+            path to file that JSON object is stored in
 
-    Parameters
-    ----------
-    file_path : str
-        path to file that JSON object is stored in
+        Returns
+        -------
+        List[EnsembleDistribution]
+            list of EnsembleDistribution objects
+        """
+        with open(file_path, "r") as infile:
+            distribution_summaries = json.load(infile)
 
-    Returns
-    -------
-    List[EnsembleDistribution]
-        list of EnsembleDistribution objects
-    """
-    with open(file_path, "r") as infile:
-        distribution_summaries = json.load(infile)
+        res = [None] * len(distribution_summaries)
+        for i in range(len(distribution_summaries)):
+            named_weights, mean, variance = (
+                distribution_summaries[i]["named_weights"],
+                distribution_summaries[i]["mean"],
+                distribution_summaries[i]["variance"],
+            )
+            res[i] = cls(named_weights, mean, variance)
 
-    res = [None] * len(distribution_summaries)
-    for i in range(len(distribution_summaries)):
-        named_weights, mean, variance = (
-            distribution_summaries[i]["named_weights"],
-            distribution_summaries[i]["mean"],
-            distribution_summaries[i]["variance"],
-        )
-        res[i] = EnsembleDistribution(named_weights, mean, variance)
+        return res
 
-    return res
+
+# def from_json(file_path: str) -> List[EnsembleDistribution]:
+#     """deserializes JSON object into list of Ensemble Distribution objects
+
+#     Parameters
+#     ----------
+#     file_path : str
+#         path to file that JSON object is stored in
+
+#     Returns
+#     -------
+#     List[EnsembleDistribution]
+#         list of EnsembleDistribution objects
+#     """
+#     with open(file_path, "r") as infile:
+#         distribution_summaries = json.load(infile)
+
+#     res = [None] * len(distribution_summaries)
+#     for i in range(len(distribution_summaries)):
+#         named_weights, mean, variance = (
+#             distribution_summaries[i]["named_weights"],
+#             distribution_summaries[i]["mean"],
+#             distribution_summaries[i]["variance"],
+#         )
+#         res[i] = EnsembleDistribution(named_weights, mean, variance)
+
+#     return res
 
 
 class EnsembleResult:

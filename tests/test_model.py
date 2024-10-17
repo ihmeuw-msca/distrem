@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import scipy.stats as stats
 
-from ensemble.model import EnsembleDistribution, EnsembleFitter, from_json
+from ensemble.model import EnsembleDistribution, EnsembleFitter
 
 STD_NORMAL_DRAWS = stats.norm(loc=0, scale=1).rvs(100)
 
@@ -78,7 +78,7 @@ def test_json():
     )
     model1.to_json("test_read.json", appending=True)
 
-    m1 = from_json("test_read.json")[1]
+    m1 = EnsembleDistribution.from_json("test_read.json")[1]
     assert m1.stats_temp("mv") == DEFAULT_SETTINGS
     assert m1._distributions == ["gamma", "invgamma"]
     assert m1._weights == [0.2, 0.8]

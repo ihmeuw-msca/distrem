@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from typing import Tuple, Union
 
@@ -17,9 +19,17 @@ class Distribution(ABC):
 
     """
 
-    def __init__(self, mean: float = None, variance: float = None):
+    def __init__(
+        self,
+        mean: float = None,
+        variance: float = None,
+        lb: float = None,
+        ub: float = None,
+    ):
         self.mean = mean
         self.variance = variance
+        self.lb = lb
+        self.ub = ub
         # # some kind of dictionary with
         # #   key: the support (full real line, semi infinite, etc...)
         # #   value: function that gets called when distribution is initialized
@@ -256,6 +266,13 @@ class Normal(Distribution):
 
 # analytic sol
 class Beta(Distribution):
+    # TODO: WANT TO BE ABLE TO PASS IN UPPER AND LOWER BOUNDS TO BE REFLECTED IN THE DIST
+    # EX: MEAN 6, VAR 0.2, LB 5, UB 10
+    # ADJ_MEAN = (MEAN - LB) / INTERVAL_WIDTH
+    # ADJ_VAR = VAR / INTERVAL_WIDTH
+    # INPUT ADJ MEAN & VAR INTO FUNCTION
+    # JUST GET RVS TO WORK FOR NOW, WHEN YOU TAKE A SAMPLE OF SIZE 100,
+    # JUST MULTIPLICATIVELY SCALE AND THEN LINERALY SHIFT THE DATA TO THE ORIGINAL BOUNDS
     """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.beta.html#scipy.stats.beta"""
 
     def support(self) -> Tuple[float, float]:
@@ -275,6 +292,87 @@ class Beta(Distribution):
         self._scipy_dist = stats.beta(a=alpha, b=beta)
 
 
+class MSCABeta(Distribution):
+    def _create_scipy_dist(self) -> None:
+        self.width = self.ub - self.lb
+        adj_mean = (self.mean - self.lb) / self.width
+        adj_var = self.variance / self.width
+        self._scipy_dist = Beta(adj_mean, adj_var)
+
+    def support(self) -> Tuple[float, float]:
+        """create tuple representing endpoints of support"""
+
+    def rvs(self, *args, **kwds):
+        """defaults to scipy implementation for generating random variates
+
+        Returns
+        -------
+        np.ndarray
+            random variates from a given distribution/parameters
+        """
+        return (self._scipy_dist.rvs(*args, **kwds) + self.lb) * self.width
+
+    def pdf(self, x: npt.ArrayLike) -> np.ndarray:
+        """defaults to scipy implementation for probability density function
+
+        Parameters
+        ----------
+        x : npt.ArrayLike
+            quantiles
+
+        Returns
+        -------
+        np.ndarray
+            PDF evaluated at quantile x
+        """
+        return (self._scipy_dist.pdf(x) + self.lb) * self.width
+
+    # def cdf(self, q: npt.ArrayLike) -> np.ndarray:
+    #     """defaults to scipy implementation for cumulative density function
+
+    #     Parameters
+    #     ----------
+    #     q : npt.ArrayLike
+    #         quantiles
+
+    #     Returns
+    #     -------
+    #     np.ndarray
+    #         CDF evaluated at quantile q
+    #     """
+    #     return self._scipy_dist.cdf(q)
+
+    # def ppf(self, p: npt.ArrayLike) -> np.ndarray:
+    #     """defaults to scipy implementation for percent point function
+
+    #     Parameters
+    #     ----------
+    #     p : npt.ArrayLike
+    #         lower tail probability
+
+    #     Returns
+    #     -------
+    #     np.ndarray
+    #         PPF evaluated at lower tail probability p
+    #     """
+    #     return self._scipy_dist.ppf(p)
+
+    # def stats(self, moments: str) -> Union[float, Tuple[float, ...]]:
+    #     """defaults to scipy implementation for obtaining moments
+
+    #     Parameters
+    #     ----------
+    #     moments : str
+    #         m for mean, v for variance, s for skewness, k for kurtosis
+
+    #     Returns
+    #     -------
+    #     Union[float, Tuple[float, ...]]
+    #         mean, variance, skewness, and/or kurtosis
+    #     """
+    #     return self._scipy_dist.stats(moments=moments)
+
+
 distribution_dict = {
     "exponential": Exponential,
     "gamma": Gamma,
@@ -285,6 +383,7 @@ distribution_dict = {
     "lognormal": LogNormal,
     "normal": Normal,
     "beta": Beta,
+    "MSCAbeta": MSCABeta,
 }
 
 
