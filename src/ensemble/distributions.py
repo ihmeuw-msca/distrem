@@ -297,10 +297,42 @@ class MSCABeta(Distribution):
         self.width = self.ub - self.lb
         adj_mean = (self.mean - self.lb) / self.width
         adj_var = self.variance / self.width
-        self._scipy_dist = Beta(adj_mean, adj_var)
+        print(adj_mean, adj_var)
+        self._scipy_dist = Beta(adj_mean, adj_var)._scipy_dist
+
+    def _squeeze(self, x: float) -> float:
+        """transform x to be within (0, 1)
+
+        Parameters
+        ----------
+        x : float
+            value within support
+
+        Returns
+        -------
+        float
+            transformed value within support
+        """
+        return (x - self.lb) / self.width
+
+    def _stretch(self, x: float) -> float:
+        """transform x from (0, 1) back to original bounds
+
+        Parameters
+        ----------
+        x : float
+            value within standard Beta support
+
+        Returns
+        -------
+        float
+            transformed value within original support
+        """
+        return (x + self.lb) * self.width
 
     def support(self) -> Tuple[float, float]:
         """create tuple representing endpoints of support"""
+        return (self.lb, self.ub)
 
     def rvs(self, *args, **kwds):
         """defaults to scipy implementation for generating random variates
@@ -310,7 +342,7 @@ class MSCABeta(Distribution):
         np.ndarray
             random variates from a given distribution/parameters
         """
-        return (self._scipy_dist.rvs(*args, **kwds) + self.lb) * self.width
+        return self._stretch(self._scipy_dist.rvs(*args, **kwds))
 
     def pdf(self, x: npt.ArrayLike) -> np.ndarray:
         """defaults to scipy implementation for probability density function
@@ -325,52 +357,52 @@ class MSCABeta(Distribution):
         np.ndarray
             PDF evaluated at quantile x
         """
-        return (self._scipy_dist.pdf(x) + self.lb) * self.width
+        return self._stretch(self._scipy_dist.pdf(self._squeeze(x)))
 
-    # def cdf(self, q: npt.ArrayLike) -> np.ndarray:
-    #     """defaults to scipy implementation for cumulative density function
+    def cdf(self, q: npt.ArrayLike) -> np.ndarray:
+        """defaults to scipy implementation for cumulative density function
 
-    #     Parameters
-    #     ----------
-    #     q : npt.ArrayLike
-    #         quantiles
+        Parameters
+        ----------
+        q : npt.ArrayLike
+            quantiles
 
-    #     Returns
-    #     -------
-    #     np.ndarray
-    #         CDF evaluated at quantile q
-    #     """
-    #     return self._scipy_dist.cdf(q)
+        Returns
+        -------
+        np.ndarray
+            CDF evaluated at quantile q
+        """
+        return self._stretch(self._scipy_dist.cdf(self._squeeze(q)))
 
-    # def ppf(self, p: npt.ArrayLike) -> np.ndarray:
-    #     """defaults to scipy implementation for percent point function
+    def ppf(self, p: npt.ArrayLike) -> np.ndarray:
+        """defaults to scipy implementation for percent point function
 
-    #     Parameters
-    #     ----------
-    #     p : npt.ArrayLike
-    #         lower tail probability
+        Parameters
+        ----------
+        p : npt.ArrayLike
+            lower tail probability
 
-    #     Returns
-    #     -------
-    #     np.ndarray
-    #         PPF evaluated at lower tail probability p
-    #     """
-    #     return self._scipy_dist.ppf(p)
+        Returns
+        -------
+        np.ndarray
+            PPF evaluated at lower tail probability p
+        """
+        return self._stretch(self._scipy_dist.ppf(p))
 
-    # def stats(self, moments: str) -> Union[float, Tuple[float, ...]]:
-    #     """defaults to scipy implementation for obtaining moments
+    def stats(self, moments: str) -> Union[float, Tuple[float, ...]]:
+        """defaults to scipy implementation for obtaining moments
 
-    #     Parameters
-    #     ----------
-    #     moments : str
-    #         m for mean, v for variance, s for skewness, k for kurtosis
+        Parameters
+        ----------
+        moments : str
+            m for mean, v for variance, s for skewness, k for kurtosis
 
-    #     Returns
-    #     -------
-    #     Union[float, Tuple[float, ...]]
-    #         mean, variance, skewness, and/or kurtosis
-    #     """
-    #     return self._scipy_dist.stats(moments=moments)
+        Returns
+        -------
+        Union[float, Tuple[float, ...]]
+            mean, variance, skewness, and/or kurtosis
+        """
+        return self._stretch(self._scipy_dist.stats(moments=moments))
 
 
 distribution_dict = {
