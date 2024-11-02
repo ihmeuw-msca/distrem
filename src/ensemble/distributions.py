@@ -23,13 +23,9 @@ class Distribution(ABC):
         self,
         mean: float = None,
         variance: float = None,
-        lb: float = None,
-        ub: float = None,
     ):
         self.mean = mean
         self.variance = variance
-        self.lb = lb
-        self.ub = ub
         # # some kind of dictionary with
         # #   key: the support (full real line, semi infinite, etc...)
         # #   value: function that gets called when distribution is initialized
@@ -218,6 +214,7 @@ class Weibull(Distribution):
         # https://real-statistics.com/distribution-fitting/method-of-moments/method-of-moments-weibull/
         k = opt.root_scalar(self._func, x0=0.5, method="newton")
         lambda_ = self.mean / gamma_func(1 + 1 / k.root)
+        print("hi!", lambda_, k.root)
 
         # most likely a parameterization issue
         self._scipy_dist = stats.weibull_min(c=k.root, scale=lambda_)
@@ -266,39 +263,19 @@ class Normal(Distribution):
 
 # analytic sol
 class Beta(Distribution):
-    # TODO: WANT TO BE ABLE TO PASS IN UPPER AND LOWER BOUNDS TO BE REFLECTED IN THE DIST
-    # EX: MEAN 6, VAR 0.2, LB 5, UB 10
-    # ADJ_MEAN = (MEAN - LB) / INTERVAL_WIDTH
-    # ADJ_VAR = VAR / INTERVAL_WIDTH
-    # INPUT ADJ MEAN & VAR INTO FUNCTION
-    # JUST GET RVS TO WORK FOR NOW, WHEN YOU TAKE A SAMPLE OF SIZE 100,
-    # JUST MULTIPLICATIVELY SCALE AND THEN LINERALY SHIFT THE DATA TO THE ORIGINAL BOUNDS
     """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.beta.html#scipy.stats.beta"""
 
-    def support(self) -> Tuple[float, float]:
-        return (0, 1)
-
-    def _create_scipy_dist(self) -> None:
-        beta_bounds(self.mean)
-        alpha = (
-            self.mean**2 * (1 - self.mean) - self.mean * self.variance
-        ) / self.variance
-        beta = (
-            (1 - self.mean)
-            * (self.mean - self.mean**2 - self.variance)
-            / self.variance
-        )
-        print(alpha, beta)
-        self._scipy_dist = stats.beta(a=alpha, b=beta)
-
-
-class MSCABeta(Distribution):
-    def _create_scipy_dist(self) -> None:
-        self.width = self.ub - self.lb
-        adj_mean = (self.mean - self.lb) / self.width
-        adj_var = self.variance / self.width
-        print(adj_mean, adj_var)
-        self._scipy_dist = Beta(adj_mean, adj_var)._scipy_dist
+    def __init__(
+        self,
+        mean: float = None,
+        variance: float = None,
+        lb: float = 0,
+        ub: float = 1,
+    ):
+        self.lb = lb
+        self.ub = ub
+        self.width = np.abs(ub - lb)
+        super().__init__(mean, variance)
 
     def _squeeze(self, x: float) -> float:
         """transform x to be within (0, 1)
@@ -331,8 +308,23 @@ class MSCABeta(Distribution):
         return (x + self.lb) * self.width
 
     def support(self) -> Tuple[float, float]:
-        """create tuple representing endpoints of support"""
         return (self.lb, self.ub)
+
+    def _create_scipy_dist(self) -> None:
+        # TODO: PUT THE WARNINGS HERE
+        # FIX THE MEAN, AND THEN DERIVE A FUNCTION IN TERMS OF ALPHA, THEN WARN
+        beta_bounds(self.mean)
+        if self.lb != 0 and self.ub != 1:
+            mean = (self.mean - self.lb) / self.width
+            var = self.variance / self.width
+        else:
+            mean = self.mean
+            var = self.variance
+
+        alpha = (mean**2 * (1 - mean) - mean * var) / var
+        beta = (1 - mean) * (mean - mean**2 - var) / var
+        print(alpha, beta)
+        self._scipy_dist = stats.beta(a=alpha, b=beta)
 
     def rvs(self, *args, **kwds):
         """defaults to scipy implementation for generating random variates
@@ -402,7 +394,17 @@ class MSCABeta(Distribution):
         Union[float, Tuple[float, ...]]
             mean, variance, skewness, and/or kurtosis
         """
-        return self._stretch(self._scipy_dist.stats(moments=moments))
+        res_list = []
+        if "m" in moments:
+            res_list.append(self._stretch(self.mean))
+        if "v" in moments:
+            res_list.append(self.variance * self.width)
+
+        # res_list = [res[()] for res in res_list]
+        if len(res_list) == 1:
+            return res_list[0]
+        else:
+            return tuple(res_list)
 
 
 distribution_dict = {
@@ -415,7 +417,6 @@ distribution_dict = {
     "lognormal": LogNormal,
     "normal": Normal,
     "beta": Beta,
-    "MSCAbeta": MSCABeta,
 }
 
 
