@@ -76,9 +76,9 @@ def test_json():
     model1 = EnsembleDistribution(
         {"gamma": 0.2, "invgamma": 0.8}, *DEFAULT_SETTINGS
     )
-    model1.to_json("test_read.json", appending=True)
+    model1.to_json("tests/test_read.json", appending=True)
 
-    m1 = EnsembleDistribution.from_json("test_read.json")[1]
+    m1 = EnsembleDistribution.from_json("tests/test_read.json")[1]
     assert m1.stats_temp("mv") == DEFAULT_SETTINGS
     assert m1._distributions == ["gamma", "invgamma"]
     assert m1._weights == [0.2, 0.8]
