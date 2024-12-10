@@ -129,7 +129,7 @@ dmypy.json
 .pyre/
 
 # Misc.
-.DS_Store
+**/.DS_Store
 *.csv
 *.parquet
 diabetes_demo.ipynb
