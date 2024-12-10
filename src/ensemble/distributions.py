@@ -160,6 +160,8 @@ class Fisk(Distribution):
 
     def support(self) -> Tuple[float, float]:
         return (0, np.inf)
+        # when a user passes in a different finite bound (i.e. the lb)
+        # fit a distribution with a translation in the mean only, no diff to variance b/c scaling doesn't make sense
 
     def _create_scipy_dist(self):
         positive_support(self.mean)
@@ -311,8 +313,12 @@ class Beta(Distribution):
         return (self.lb, self.ub)
 
     def _create_scipy_dist(self) -> None:
-        # TODO: PUT THE WARNINGS HERE
-        # FIX THE MEAN, AND THEN DERIVE A FUNCTION IN TERMS OF ALPHA, THEN WARN
+        if self.mean**2 <= self.variance:
+            raise ValueError(
+                "beta distributions do not exist for certain mean and variance "
+                + "combinations. The supplied variance must be in between "
+                + "(0, mean^2)"
+            )
         beta_bounds(self.mean)
         if self.lb != 0 and self.ub != 1:
             mean = (self.mean - self.lb) / self.width
@@ -325,6 +331,7 @@ class Beta(Distribution):
         beta = (1 - mean) * (mean - mean**2 - var) / var
         print(alpha, beta)
         self._scipy_dist = stats.beta(a=alpha, b=beta)
+        print(self._scipy_dist.stats("mv"))
 
     def rvs(self, *args, **kwds):
         """defaults to scipy implementation for generating random variates
@@ -349,7 +356,7 @@ class Beta(Distribution):
         np.ndarray
             PDF evaluated at quantile x
         """
-        return self._stretch(self._scipy_dist.pdf(self._squeeze(x)))
+        return self._scipy_dist.pdf(self._squeeze(x))
 
     def cdf(self, q: npt.ArrayLike) -> np.ndarray:
         """defaults to scipy implementation for cumulative density function
@@ -364,7 +371,7 @@ class Beta(Distribution):
         np.ndarray
             CDF evaluated at quantile q
         """
-        return self._stretch(self._scipy_dist.cdf(self._squeeze(q)))
+        return self._scipy_dist.cdf(self._squeeze(q))
 
     def ppf(self, p: npt.ArrayLike) -> np.ndarray:
         """defaults to scipy implementation for percent point function
@@ -396,9 +403,9 @@ class Beta(Distribution):
         """
         res_list = []
         if "m" in moments:
-            res_list.append(self._stretch(self.mean))
+            res_list.append(self._stretch(self._scipy_dist.stats("m")))
         if "v" in moments:
-            res_list.append(self.variance * self.width)
+            res_list.append(self._scipy_dist.stats("v") * self.width)
 
         # res_list = [res[()] for res in res_list]
         if len(res_list) == 1:

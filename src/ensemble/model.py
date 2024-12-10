@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from typing import List, Tuple, Union
 
 import cvxpy as cp
@@ -38,6 +39,8 @@ class EnsembleDistribution:
         named_weights: dict,
         mean: float,
         variance: float,
+        lb: float = None,
+        ub: float = None,
     ):
         self._distributions = list(named_weights.keys())
         self._weights = list(named_weights.values())
@@ -53,6 +56,18 @@ class EnsembleDistribution:
             )
         self.mean = mean
         self.variance = variance
+        if lb is not None and self.cdf(lb) > 0.05:
+            warnings.warn(
+                "Ensemble density less than the specified lower bound "
+                + lb
+                + " exceeds 0.05. Check for low sample size!"
+            )
+        if ub is not None and (1 - self.cdf(ub)) > 0.05:
+            warnings.warn(
+                "Ensemble density greater than the specified upper bound "
+                + ub
+                + " exceeds 0.05. Check for low sample size!"
+            )
 
     def _ppf_to_solve(self, x: float, p: float) -> float:
         """ensemble_CDF(x) - lower tail probability
@@ -145,13 +160,15 @@ class EnsembleDistribution:
             )
         )
 
-    def ppf(self, p: npt.ArrayLike) -> np.ndarray:
+    def ppf(self, p: npt.ArrayLike, uncertainty: bool = True) -> np.ndarray:
         """percent point function of ensemble distribution
 
         Parameters
         ----------
         p : npt.ArrayLike
             lower tail probability
+        uncertainty : bool, optional
+            return a 95% CI using the delta method about p
 
         Returns
         -------
