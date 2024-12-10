@@ -23,13 +23,9 @@ class Distribution(ABC):
         self,
         mean: float = None,
         variance: float = None,
-        lb: float = None,
-        ub: float = None,
     ):
         self.mean = mean
         self.variance = variance
-        self.lb = lb
-        self.ub = ub
         # # some kind of dictionary with
         # #   key: the support (full real line, semi infinite, etc...)
         # #   value: function that gets called when distribution is initialized
@@ -164,6 +160,8 @@ class Fisk(Distribution):
 
     def support(self) -> Tuple[float, float]:
         return (0, np.inf)
+        # when a user passes in a different finite bound (i.e. the lb)
+        # fit a distribution with a translation in the mean only, no diff to variance b/c scaling doesn't make sense
 
     def _create_scipy_dist(self):
         positive_support(self.mean)
@@ -218,6 +216,7 @@ class Weibull(Distribution):
         # https://real-statistics.com/distribution-fitting/method-of-moments/method-of-moments-weibull/
         k = opt.root_scalar(self._func, x0=0.5, method="newton")
         lambda_ = self.mean / gamma_func(1 + 1 / k.root)
+        print("hi!", lambda_, k.root)
 
         # most likely a parameterization issue
         self._scipy_dist = stats.weibull_min(c=k.root, scale=lambda_)
@@ -266,41 +265,73 @@ class Normal(Distribution):
 
 # analytic sol
 class Beta(Distribution):
-    # TODO: WANT TO BE ABLE TO PASS IN UPPER AND LOWER BOUNDS TO BE REFLECTED IN THE DIST
-    # EX: MEAN 6, VAR 0.2, LB 5, UB 10
-    # ADJ_MEAN = (MEAN - LB) / INTERVAL_WIDTH
-    # ADJ_VAR = VAR / INTERVAL_WIDTH
-    # INPUT ADJ MEAN & VAR INTO FUNCTION
-    # JUST GET RVS TO WORK FOR NOW, WHEN YOU TAKE A SAMPLE OF SIZE 100,
-    # JUST MULTIPLICATIVELY SCALE AND THEN LINERALY SHIFT THE DATA TO THE ORIGINAL BOUNDS
     """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.beta.html#scipy.stats.beta"""
 
+    def __init__(
+        self,
+        mean: float = None,
+        variance: float = None,
+        lb: float = 0,
+        ub: float = 1,
+    ):
+        self.lb = lb
+        self.ub = ub
+        self.width = np.abs(ub - lb)
+        super().__init__(mean, variance)
+
+    def _squeeze(self, x: float) -> float:
+        """transform x to be within (0, 1)
+
+        Parameters
+        ----------
+        x : float
+            value within support
+
+        Returns
+        -------
+        float
+            transformed value within support
+        """
+        return (x - self.lb) / self.width
+
+    def _stretch(self, x: float) -> float:
+        """transform x from (0, 1) back to original bounds
+
+        Parameters
+        ----------
+        x : float
+            value within standard Beta support
+
+        Returns
+        -------
+        float
+            transformed value within original support
+        """
+        return (x + self.lb) * self.width
+
     def support(self) -> Tuple[float, float]:
-        return (0, 1)
+        return (self.lb, self.ub)
 
     def _create_scipy_dist(self) -> None:
+        if self.mean**2 <= self.variance:
+            raise ValueError(
+                "beta distributions do not exist for certain mean and variance "
+                + "combinations. The supplied variance must be in between "
+                + "(0, mean^2)"
+            )
         beta_bounds(self.mean)
-        alpha = (
-            self.mean**2 * (1 - self.mean) - self.mean * self.variance
-        ) / self.variance
-        beta = (
-            (1 - self.mean)
-            * (self.mean - self.mean**2 - self.variance)
-            / self.variance
-        )
+        if self.lb != 0 and self.ub != 1:
+            mean = (self.mean - self.lb) / self.width
+            var = self.variance / self.width
+        else:
+            mean = self.mean
+            var = self.variance
+
+        alpha = (mean**2 * (1 - mean) - mean * var) / var
+        beta = (1 - mean) * (mean - mean**2 - var) / var
         print(alpha, beta)
         self._scipy_dist = stats.beta(a=alpha, b=beta)
-
-
-class MSCABeta(Distribution):
-    def _create_scipy_dist(self) -> None:
-        self.width = self.ub - self.lb
-        adj_mean = (self.mean - self.lb) / self.width
-        adj_var = self.variance / self.width
-        self._scipy_dist = Beta(adj_mean, adj_var)
-
-    def support(self) -> Tuple[float, float]:
-        """create tuple representing endpoints of support"""
+        print(self._scipy_dist.stats("mv"))
 
     def rvs(self, *args, **kwds):
         """defaults to scipy implementation for generating random variates
@@ -310,7 +341,7 @@ class MSCABeta(Distribution):
         np.ndarray
             random variates from a given distribution/parameters
         """
-        return (self._scipy_dist.rvs(*args, **kwds) + self.lb) * self.width
+        return self._stretch(self._scipy_dist.rvs(*args, **kwds))
 
     def pdf(self, x: npt.ArrayLike) -> np.ndarray:
         """defaults to scipy implementation for probability density function
@@ -325,52 +356,62 @@ class MSCABeta(Distribution):
         np.ndarray
             PDF evaluated at quantile x
         """
-        return (self._scipy_dist.pdf(x) + self.lb) * self.width
+        return self._scipy_dist.pdf(self._squeeze(x))
 
-    # def cdf(self, q: npt.ArrayLike) -> np.ndarray:
-    #     """defaults to scipy implementation for cumulative density function
+    def cdf(self, q: npt.ArrayLike) -> np.ndarray:
+        """defaults to scipy implementation for cumulative density function
 
-    #     Parameters
-    #     ----------
-    #     q : npt.ArrayLike
-    #         quantiles
+        Parameters
+        ----------
+        q : npt.ArrayLike
+            quantiles
 
-    #     Returns
-    #     -------
-    #     np.ndarray
-    #         CDF evaluated at quantile q
-    #     """
-    #     return self._scipy_dist.cdf(q)
+        Returns
+        -------
+        np.ndarray
+            CDF evaluated at quantile q
+        """
+        return self._scipy_dist.cdf(self._squeeze(q))
 
-    # def ppf(self, p: npt.ArrayLike) -> np.ndarray:
-    #     """defaults to scipy implementation for percent point function
+    def ppf(self, p: npt.ArrayLike) -> np.ndarray:
+        """defaults to scipy implementation for percent point function
 
-    #     Parameters
-    #     ----------
-    #     p : npt.ArrayLike
-    #         lower tail probability
+        Parameters
+        ----------
+        p : npt.ArrayLike
+            lower tail probability
 
-    #     Returns
-    #     -------
-    #     np.ndarray
-    #         PPF evaluated at lower tail probability p
-    #     """
-    #     return self._scipy_dist.ppf(p)
+        Returns
+        -------
+        np.ndarray
+            PPF evaluated at lower tail probability p
+        """
+        return self._stretch(self._scipy_dist.ppf(p))
 
-    # def stats(self, moments: str) -> Union[float, Tuple[float, ...]]:
-    #     """defaults to scipy implementation for obtaining moments
+    def stats(self, moments: str) -> Union[float, Tuple[float, ...]]:
+        """defaults to scipy implementation for obtaining moments
 
-    #     Parameters
-    #     ----------
-    #     moments : str
-    #         m for mean, v for variance, s for skewness, k for kurtosis
+        Parameters
+        ----------
+        moments : str
+            m for mean, v for variance, s for skewness, k for kurtosis
 
-    #     Returns
-    #     -------
-    #     Union[float, Tuple[float, ...]]
-    #         mean, variance, skewness, and/or kurtosis
-    #     """
-    #     return self._scipy_dist.stats(moments=moments)
+        Returns
+        -------
+        Union[float, Tuple[float, ...]]
+            mean, variance, skewness, and/or kurtosis
+        """
+        res_list = []
+        if "m" in moments:
+            res_list.append(self._stretch(self._scipy_dist.stats("m")))
+        if "v" in moments:
+            res_list.append(self._scipy_dist.stats("v") * self.width)
+
+        # res_list = [res[()] for res in res_list]
+        if len(res_list) == 1:
+            return res_list[0]
+        else:
+            return tuple(res_list)
 
 
 distribution_dict = {
@@ -383,7 +424,6 @@ distribution_dict = {
     "lognormal": LogNormal,
     "normal": Normal,
     "beta": Beta,
-    "MSCAbeta": MSCABeta,
 }
 
 

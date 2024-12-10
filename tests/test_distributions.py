@@ -63,7 +63,7 @@ def test_gumbel():
 
 
 def test_weibull():
-    weibull = Weibull(MEAN, VARIANCE)
+    weibull = Weibull(624.25, 183.791**2)
     res = weibull.stats(moments="mv")
     print("resulting mean and var: ", res)
     assert np.isclose(res[0], MEAN)
@@ -92,9 +92,8 @@ def test_normal():
 
 def test_beta():
     beta = Beta(BETA_MEAN, BETA_VARIANCE)
+    # beta = Beta(0.5, 0.249)
     res = beta.stats(moments="mv")
-    print("resulting mean and var: ", res)
-    assert False
     assert np.isclose(res[0], BETA_MEAN)
     assert np.isclose(res[1], BETA_VARIANCE)
 
