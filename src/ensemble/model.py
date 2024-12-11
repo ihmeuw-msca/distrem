@@ -559,7 +559,7 @@ def _check_supports_match(distributions: List[str]) -> Tuple[float, float]:
     """
     supports = set()
     for distribution in distributions:
-        supports.add(distribution_dict[distribution]().support())
+        supports.add(distribution_dict[distribution].support())
     if len(supports) != 1:
         raise ValueError(
             "the provided list of distributions do not all have the same support: "
