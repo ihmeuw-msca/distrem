@@ -62,12 +62,16 @@ class Distribution(ABC, metaclass=ABCMeta):
                     )
                 self.support = (self.support[0], ub)
             case _:
-                if self.lb is not None or self.ub is not None:
-                    if np.isinf(self.lb) or np.isinf(self.ub):
-                        raise ValueError(
-                            "You may not change an infinite bound to be finite or"
-                            + "set a bound to be infinite"
-                        )
+                if self.lb is not None and np.isinf(self.lb):
+                    raise ValueError(
+                        "You may not change an infinite bound to be finite or"
+                        + "set a bound to be infinite"
+                    )
+                if self.ub is not None and np.isinf(self.ub):
+                    raise ValueError(
+                        "You may not change an infinite bound to be finite or"
+                        + "set a bound to be infinite"
+                    )
                 pass
 
         self._create_scipy_dist()
@@ -357,17 +361,17 @@ class Normal(Distribution):
 class Beta(Distribution):
     """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.beta.html#scipy.stats.beta"""
 
+    support = (0, 1)
+
     def __init__(
         self,
-        mean: float = None,
-        variance: float = None,
+        mean: float,
+        variance: float,
         lb: float = 0,
         ub: float = 1,
     ):
-        self.lb = lb
-        self.ub = ub
+        super().__init__(mean, variance, lb, ub)
         self.width = np.abs(ub - lb)
-        super().__init__(mean, variance)
 
     def _squeeze(self, x: float) -> float:
         """transform x to be within (0, 1)
@@ -399,8 +403,8 @@ class Beta(Distribution):
         """
         return (x + self.lb) * self.width
 
-    def support(self) -> Tuple[float, float]:
-        return (self.lb, self.ub)
+    # def support(self) -> Tuple[float, float]:
+    #     return (self.lb, self.ub)
 
     def _create_scipy_dist(self) -> None:
         if self.mean**2 <= self.variance:

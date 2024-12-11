@@ -254,6 +254,7 @@ class EnsembleDistribution:
         """
         fig, ax = plt.subplots(1, 2, figsize=(12, 6))
         scaling = 3 * np.sqrt(self.variance)
+        # TODO: THIS MAY CHANGE SINCE USER CAN NOW PUT LB AND UB
         lb = np.max([self.support[0], self.mean - scaling])
         ub = np.min([self.support[1], self.mean + scaling])
         support = np.linspace(lb, ub, 100)
@@ -389,13 +390,23 @@ class EnsembleFitter:
         names of distributions in ensemble
     objective: str
         name of objective function for use in fitting ensemble
+    lb: str
+
 
     """
 
-    def __init__(self, distributions: List[str], objective: str):
+    def __init__(
+        self,
+        distributions: List[str],
+        objective: str,
+        lb: str = None,
+        ub: str = None,
+    ):
         self.support = _check_supports_match(distributions)
         self.distributions = distributions
         self.objective = objective
+        self.lb = lb
+        self.ub = ub
 
     def _objective_func(self, vec: np.ndarray) -> float:
         """applies different penalties to vector of distances given by user
@@ -491,7 +502,7 @@ class EnsembleFitter:
         pdfs = np.zeros((len(data), num_distributions))
         for i in range(num_distributions):
             curr_dist = distribution_dict[self.distributions[i]](
-                sample_mean, sample_variance
+                sample_mean, sample_variance, lb=self.lb, ub=self.ub
             )
             cdfs[:, i] = curr_dist.cdf(equantiles)
             pdfs[:, i] = curr_dist.pdf(equantiles)
@@ -559,7 +570,7 @@ def _check_supports_match(distributions: List[str]) -> Tuple[float, float]:
     """
     supports = set()
     for distribution in distributions:
-        supports.add(distribution_dict[distribution].support())
+        supports.add(distribution_dict[distribution].support)
     if len(supports) != 1:
         raise ValueError(
             "the provided list of distributions do not all have the same support: "
