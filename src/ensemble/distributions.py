@@ -88,8 +88,8 @@ class Distribution(ABC, metaclass=ABCMeta):
 
     def _shift(self, x: float) -> float:
         if self.lb is not None:
-            return x + self.lb
-        return x + 0
+            return x - self.lb
+        return x
 
     # def validate_finite_bounds(self, b1, b2):
     #     if np.isinf(b1) or np.isinf(b2):
