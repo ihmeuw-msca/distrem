@@ -33,6 +33,8 @@ class Distribution(ABC, metaclass=ABCMeta):
         # self._support_setup()
         self.shifted_mean = None
         self._scipy_dist = None
+        # ONLY for use when creating ensemble from pre-fitted distributions
+        self._weight = None
         match (
             self.lb is not None and not np.isinf(self.lb),
             self.ub is not None and not np.isinf(self.ub),
@@ -187,28 +189,6 @@ class Exponential(Distribution):
     """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.expon.html"""
 
     support = (0, np.inf)
-    # def support(self):
-    #     return (0, np.inf)
-
-    # @property
-    # def support(self) -> Tuple[float, float]:
-    #     lb = self.lb if self.lb is not None else 0
-    #     ub = self.ub if self.ub is not None else np.inf
-    #     return (lb, ub)
-
-    # @support.setter
-    # def support(self):
-    #     # print("Set radius")
-    #     self.support = (1, 3)
-
-    # @radius.deleter
-    # def radius(self):
-    #     print("Delete radius")
-    #     del self._radius
-
-    # @classmethod
-    # def support(cls) -> Tuple[float, float]:
-    #     return (0, np.inf)
 
     def _create_scipy_dist(self, csd_mean) -> None:
         positive_support(self.mean)
@@ -220,14 +200,12 @@ class Exponential(Distribution):
 class Gamma(Distribution):
     """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gamma.html#scipy.stats.gamma"""
 
-    # def support(self) -> Tuple[float, float]:
-    #     return (0, np.inf)
     support = (0, np.inf)
 
-    def _create_scipy_dist(self) -> None:
+    def _create_scipy_dist(self, csd_mean) -> None:
         strict_positive_support(self.mean)
-        alpha = self.mean**2 / self.variance
-        beta = self.mean / self.variance
+        alpha = csd_mean**2 / self.variance
+        beta = csd_mean / self.variance
         self._scipy_dist = stats.gamma(a=alpha, scale=1 / beta)
 
 
@@ -235,14 +213,12 @@ class Gamma(Distribution):
 class InvGamma(Distribution):
     """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.invgamma.html#scipy.stats.invgamma"""
 
-    # def support(self) -> Tuple[float, float]:
-    #     return (0, np.inf)
     support = (0, np.inf)
 
-    def _create_scipy_dist(self) -> None:
+    def _create_scipy_dist(self, csd_mean) -> None:
         strict_positive_support(self.mean)
-        alpha = self.mean**2 / self.variance + 2
-        beta = self.mean * (self.mean**2 / self.variance + 1)
+        alpha = csd_mean**2 / self.variance + 2
+        beta = csd_mean * (csd_mean**2 / self.variance + 1)
         self._scipy_dist = stats.invgamma(a=alpha, scale=beta)
 
 
@@ -250,20 +226,16 @@ class InvGamma(Distribution):
 class Fisk(Distribution):
     """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.fisk.html#scipy.stats.fisk"""
 
-    # def support(self) -> Tuple[float, float]:
-    #     return (0, np.inf)
-    #     # when a user passes in a different finite bound (i.e. the lb)
-    #     # fit a distribution with a translation in the mean only, no diff to variance b/c scaling doesn't make sense
     support = (0, np.inf)
 
-    def _create_scipy_dist(self):
+    def _create_scipy_dist(self, csd_mean):
         positive_support(self.mean)
 
         optim_params = opt.minimize(
             fun=self._shape_scale,
             # start beta at 1.1 and solve for alpha
-            x0=[self.mean * 1.1 * np.sin(np.pi / 1.1) / np.pi, 1.1],
-            args=(self.mean, self.variance),
+            x0=[csd_mean * 1.1 * np.sin(np.pi / 1.1) / np.pi, 1.1],
+            args=(csd_mean, self.variance),
             # options={"disp": True},
         )
         alpha, beta = np.abs(optim_params.x)
@@ -287,11 +259,9 @@ class Fisk(Distribution):
 class GumbelR(Distribution):
     """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gumbel_r.html#scipy.stats.gumbel_r"""
 
-    # def support(self) -> Tuple[float, float]:
-    #     return (-np.inf, np.inf)
     support = (-np.inf, np.inf)
 
-    def _create_scipy_dist(self) -> None:
+    def _create_scipy_dist(self, csd_mean) -> None:
         loc = self.mean - np.sqrt(self.variance * 6) * np.euler_gamma / np.pi
         scale = np.sqrt(self.variance * 6) / np.pi
         self._scipy_dist = stats.gumbel_r(loc=loc, scale=scale)
@@ -305,12 +275,12 @@ class Weibull(Distribution):
     #     return (0, np.inf)
     support = (0, np.inf)
 
-    def _create_scipy_dist(self) -> None:
+    def _create_scipy_dist(self, csd_mean) -> None:
         positive_support(self.mean)
 
         # https://real-statistics.com/distribution-fitting/method-of-moments/method-of-moments-weibull/
         k = opt.root_scalar(self._func, x0=0.5, method="newton")
-        lambda_ = self.mean / gamma_func(1 + 1 / k.root)
+        lambda_ = csd_mean / gamma_func(1 + 1 / k.root)
         print("hi!", lambda_, k.root)
 
         # most likely a parameterization issue
@@ -329,14 +299,12 @@ class Weibull(Distribution):
 class LogNormal(Distribution):
     """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.lognorm.html#scipy.stats.lognorm"""
 
-    # def support(self) -> Tuple[float, float]:
-    #     return (0, np.inf)
     support = (0, np.inf)
 
-    def _create_scipy_dist(self) -> None:
+    def _create_scipy_dist(self, csd_mean) -> None:
         strict_positive_support(self.mean)
-        mu = np.log(self.mean / np.sqrt(1 + (self.variance / self.mean**2)))
-        sigma = np.sqrt(np.log(1 + (self.variance / self.mean**2)))
+        mu = np.log(csd_mean / np.sqrt(1 + (self.variance / csd_mean**2)))
+        sigma = np.sqrt(np.log(1 + (self.variance / csd_mean**2)))
         # scipy multiplies in the argument passed to `scale` so in the exponentiated space,
         # you're essentially adding `mu` within the exponentiated expression within the
         # lognormal's PDF; hence, scale is with exponentiation instead of loc
@@ -347,14 +315,9 @@ class LogNormal(Distribution):
 class Normal(Distribution):
     """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.norm.html#scipy.stats.norm"""
 
-    # def support(self) -> Tuple[float, float]:
-    #     return (-np.inf, np.inf)
     support = (-np.inf, np.inf)
 
-    def _create_empty_scipy_dist(self) -> None:
-        self._scipy_dist = stats.norm
-
-    def _create_scipy_dist(self) -> None:
+    def _create_scipy_dist(self, csd_mean) -> None:
         self._scipy_dist = stats.norm(
             loc=self.mean, scale=np.sqrt(self.variance)
         )
@@ -409,7 +372,8 @@ class Beta(Distribution):
     # def support(self) -> Tuple[float, float]:
     #     return (self.lb, self.ub)
 
-    def _create_scipy_dist(self) -> None:
+    def _create_scipy_dist(self, csd_mean) -> None:
+        # TODO: what happens here if the mean and variance are shifted?
         if self.mean**2 <= self.variance:
             raise ValueError(
                 "beta distributions do not exist for certain mean and variance "
@@ -512,15 +476,15 @@ class Beta(Distribution):
 
 
 distribution_dict = {
-    "exponential": Exponential,
-    "gamma": Gamma,
-    "invgamma": InvGamma,
-    "fisk": Fisk,
-    "gumbel": GumbelR,
-    "weibull": Weibull,
-    "lognormal": LogNormal,
-    "normal": Normal,
-    "beta": Beta,
+    "Exponential": Exponential,
+    "Gamma": Gamma,
+    "InvGamma": InvGamma,
+    "Fisk": Fisk,
+    "GumbelR": GumbelR,
+    "Weibull": Weibull,
+    "LogNormal": LogNormal,
+    "Normal": Normal,
+    "Beta": Beta,
 }
 
 
