@@ -31,6 +31,7 @@ class Distribution(ABC, metaclass=ABCMeta):
         # #   value: function that gets called when distribution is initialized
         # self.support = None
         # self._support_setup()
+        self.shifted_mean = None
         self._scipy_dist = None
         match (
             self.lb is not None and not np.isinf(self.lb),
@@ -53,7 +54,8 @@ class Distribution(ABC, metaclass=ABCMeta):
                         + "set a bound to be infinite"
                     )
                 self.support = (lb, self.support[1])
-                self.mean = self.mean - lb
+                # self.mean = self.mean - lb
+                self.shifted_mean = self.mean - lb
             case (False, True):
                 if np.isinf(self.support[1]):
                     raise ValueError(
@@ -74,10 +76,11 @@ class Distribution(ABC, metaclass=ABCMeta):
                     )
                 pass
 
-        self._create_scipy_dist()
+        csd_mean = self.mean if self.shifted_mean is None else self.shifted_mean
+        self._create_scipy_dist(csd_mean)
 
     @abstractmethod
-    def _create_scipy_dist(self) -> None:
+    def _create_scipy_dist(self, csd_mean: int) -> None:
         """Create scipy distribution from mean and variance"""
 
     @property
@@ -207,9 +210,9 @@ class Exponential(Distribution):
     # def support(cls) -> Tuple[float, float]:
     #     return (0, np.inf)
 
-    def _create_scipy_dist(self) -> None:
+    def _create_scipy_dist(self, csd_mean) -> None:
         positive_support(self.mean)
-        lambda_ = 1 / self.mean
+        lambda_ = 1 / csd_mean
         self._scipy_dist = stats.expon(scale=1 / lambda_)
 
 

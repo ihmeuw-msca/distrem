@@ -44,6 +44,8 @@ class EnsembleDistribution:
     ):
         self._distributions = list(named_weights.keys())
         self._weights = list(named_weights.values())
+        self.lb = lb
+        self.ub = ub
 
         _check_valid_ensemble(self._distributions, self._weights)
         self.support = _check_supports_match(self._distributions)
@@ -52,7 +54,10 @@ class EnsembleDistribution:
         self.fitted_distributions = []
         for distribution in self.named_weights.keys():
             self.fitted_distributions.append(
-                distribution_dict[distribution](mean, variance)
+                # TODO: CHECK LATER
+                distribution_dict[distribution](
+                    mean, variance, self.lb, self.ub
+                )
             )
         self.mean = mean
         self.variance = variance
@@ -460,7 +465,12 @@ class EnsembleFitter:
         # return self._objective_func(ecdf - cdfs @ weights)
         return -1 * cp.sum(cp.log(pdfs @ weights))
 
-    def fit(self, data: npt.ArrayLike) -> EnsembleResult:
+    def fit(
+        self,
+        data: npt.ArrayLike,
+        lb: float | None = None,
+        ub: float | None = None,
+    ) -> EnsembleResult:
         """fits weighted sum of CDFs corresponding to distributions in
         EnsembleModel object to empirical CDF of given data
 
@@ -502,7 +512,7 @@ class EnsembleFitter:
         pdfs = np.zeros((len(data), num_distributions))
         for i in range(num_distributions):
             curr_dist = distribution_dict[self.distributions[i]](
-                sample_mean, sample_variance, lb=self.lb, ub=self.ub
+                sample_mean, sample_variance, lb=lb, ub=ub
             )
             cdfs[:, i] = curr_dist.cdf(equantiles)
             pdfs[:, i] = curr_dist.pdf(equantiles)
@@ -530,6 +540,8 @@ class EnsembleFitter:
                 dict(zip(self.distributions, fitted_weights)),
                 sample_mean,
                 sample_variance,
+                lb=lb,
+                ub=ub,
             ),
         )
 

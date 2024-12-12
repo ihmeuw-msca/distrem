@@ -22,13 +22,19 @@ VARIANCE = 2
 
 def test_exp():
     assert Exponential.support == (0, np.inf)
-    # assert Exponential._support == (0, np.inf)
     exp = Exponential(MEAN, VARIANCE)
     assert exp.support == (0, np.inf)
     res = exp.stats(moments="mv")
     exp_var = MEAN**2
     assert np.isclose(res[0], MEAN)
     assert np.isclose(res[1], exp_var)
+
+    exp2 = Exponential(MEAN, VARIANCE)
+    exp2.support = (1, np.inf)
+    res2 = exp2.stats(moments="mv")
+    exp_var2 = MEAN**2
+    assert np.isclose(res2[0], MEAN)
+    assert np.isclose(res2[1], exp_var2)
 
 
 def test_gamma():
