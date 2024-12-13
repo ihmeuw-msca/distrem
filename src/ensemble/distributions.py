@@ -48,12 +48,20 @@ class Distribution(ABC, metaclass=ABCMeta):
                         "You may not change an infinite bound to be finite or"
                         + "set a bound to be infinite"
                     )
+                if self.lb > self.mean or self.ub < mean:
+                    raise ValueError(
+                        "mean must be between upper and lower bounds"
+                    )
                 self.support = (self.lb, self.ub)
             case (True, False):
                 if np.isinf(self.support[0]):
                     raise ValueError(
                         "You may not change an infinite bound to be finite or"
                         + "set a bound to be infinite"
+                    )
+                if self.lb > self.mean:
+                    raise ValueError(
+                        "mean must be between upper and lower bounds"
                     )
                 self.support = (lb, self.support[1])
                 # self.mean = self.mean - lb
@@ -63,6 +71,10 @@ class Distribution(ABC, metaclass=ABCMeta):
                     raise ValueError(
                         "You may not change an infinite bound to be finite or"
                         + "set a bound to be infinite"
+                    )
+                if self.ub < mean:
+                    raise ValueError(
+                        "mean must be between upper and lower bounds"
                     )
                 self.support = (self.support[0], ub)
             case _:

@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 import scipy.stats as stats
 
+from ensemble.distributions import distribution_dict
 from ensemble.model import EnsembleDistribution, EnsembleFitter
 
 STD_NORMAL_DRAWS = stats.norm(loc=0, scale=1).rvs(100)
@@ -68,6 +69,46 @@ def test_resulting_weights():
     model2 = EnsembleFitter(["Exponential", "LogNormal", "Fisk"], "KS")
     res2 = model2.fit(ENSEMBLE_POS_DRAWS)
     assert np.isclose(np.sum(res2.weights), 1)
+
+
+def test_bounds():
+    with pytest.raises(ValueError):
+        EnsembleDistribution({"Normal": 0.5, "GumbelR": 0.5}, 1, 1, lb=0)
+    with pytest.raises(ValueError):
+        EnsembleDistribution({"Normal": 0.5, "GumbelR": 0.5}, 1, 1, ub=0)
+    with pytest.raises(ValueError):
+        EnsembleDistribution({"Exponential": 0.5, "Gamma": 0.5}, 1, 1, ub=0)
+    with pytest.raises(ValueError):
+        EnsembleDistribution({"Exponential": 0.5, "Gamma": 0.5}, 1, 1, lb=4)
+
+
+def test_from_obj():
+    gamma1 = distribution_dict["Gamma"](7, 1, lb=3)
+    # diff mean/var
+    gamma2 = distribution_dict["Gamma"](6, 1, lb=3)
+    logn1 = distribution_dict["LogNormal"](7, 1, lb=3)
+    # diff bounds
+    logn2 = distribution_dict["LogNormal"](7, 1, lb=2)
+
+    # unweighted
+    with pytest.raises(ValueError):
+        EnsembleDistribution.from_objs([gamma1, logn1])
+
+    # weighted
+    gamma1._weight = 0.5
+    logn1._weight = 0.5
+    EnsembleDistribution.from_objs([gamma1, logn1])
+    # weights that dont sum to 1
+    gamma1._weight = 0.4
+    logn1._weight = 0.5
+    with pytest.raises(ValueError):
+        EnsembleDistribution.from_objs([gamma1, logn1])
+
+    # mean/var mismatch
+    with pytest.raises(ValueError):
+        EnsembleDistribution.from_objs([gamma2, logn1])
+    with pytest.raises(ValueError):
+        EnsembleDistribution.from_objs([gamma1, logn2])
 
 
 def test_json():

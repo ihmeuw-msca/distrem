@@ -41,21 +41,12 @@ class EnsembleDistribution:
         variance: float,
         lb: float = None,
         ub: float = None,
-        _fitted_distributions: List[Distribution] = None,
+        # TODO: strict mode to enforce ub/lb vs not doing stuff?
     ):
-        self.fitted_distributions = self.__class__.from_objs
-
-        if _fitted_distributions is not None:
-            self.fitted_distributions = _fitted_distributions
-            self.lb, self.ub = (
-                _fitted_distributions[0].lb,
-                _fitted_distributions[0].ub,
-            )
-        else:
-            self._distributions = list(named_weights.keys())
-            self._weights = list(named_weights.values())
-            self.lb = lb
-            self.ub = ub
+        self._distributions = list(named_weights.keys())
+        self._weights = list(named_weights.values())
+        self.lb = lb
+        self.ub = ub
 
         _check_valid_ensemble(self._distributions, self._weights)
         self.support = _check_supports_match(self._distributions)
@@ -64,7 +55,6 @@ class EnsembleDistribution:
         self.fitted_distributions = []
         for distribution in self.named_weights.keys():
             self.fitted_distributions.append(
-                # TODO: CHECK LATER
                 distribution_dict[distribution](
                     mean, variance, self.lb, self.ub
                 )
@@ -332,28 +322,32 @@ class EnsembleDistribution:
                     or distribution.lb != lb
                     or distribution.ub != ub
                 ):
-                    raise ValueError
-                else:
-                    named_weights[type(distribution).__name__] = (
-                        distribution._weight
+                    raise ValueError(
+                        "means, variances, lower bounds, and upper bounds must match across all distributions\ncurrently, they are:"
                     )
-            return cls(named_weights, mean, variance)
-        except ValueError:
-            print(
-                "means, variances, lower bounds, and upper bounds must match across all distributions\ncurrently, they are:"
-            )
-            for distribution in fitted_distributions:
-                print(
-                    type(distribution).__name__ + ":",
-                    "mean =",
-                    distribution.mean,
-                    "variance =",
-                    distribution.variance,
-                    "lb =",
-                    distribution.lb,
-                    "ub =",
-                    distribution.ub,
-                )
+                else:
+                    curr_weight = distribution._weight
+                    if curr_weight is None:
+                        raise ValueError(
+                            "_weight must be set in order to create an ensemble distribution from Distribution objects"
+                        )
+                    named_weights[type(distribution).__name__] = curr_weight
+            return cls(named_weights, mean, variance, lb, ub)
+        except ValueError as err:
+            if "means, variances" in str(err):
+                for distribution in fitted_distributions:
+                    print(
+                        type(distribution).__name__ + ":",
+                        "mean =",
+                        distribution.mean,
+                        "variance =",
+                        distribution.variance,
+                        "lb =",
+                        distribution.lb,
+                        "ub =",
+                        distribution.ub,
+                    )
+            raise
 
     @classmethod
     def from_json(cls, file_path: str) -> List[EnsembleDistribution]:
