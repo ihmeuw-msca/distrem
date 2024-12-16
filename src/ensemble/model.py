@@ -11,7 +11,7 @@ import numpy.typing as npt
 import scipy.optimize as opt
 import scipy.stats as stats
 
-from ensemble.distributions import distribution_dict
+from ensemble.distributions import Distribution, distribution_dict
 
 
 class EnsembleDistribution:
@@ -41,9 +41,12 @@ class EnsembleDistribution:
         variance: float,
         lb: float = None,
         ub: float = None,
+        # TODO: strict mode to enforce ub/lb vs not doing stuff?
     ):
         self._distributions = list(named_weights.keys())
         self._weights = list(named_weights.values())
+        self.lb = lb
+        self.ub = ub
 
         _check_valid_ensemble(self._distributions, self._weights)
         self.support = _check_supports_match(self._distributions)
@@ -52,7 +55,9 @@ class EnsembleDistribution:
         self.fitted_distributions = []
         for distribution in self.named_weights.keys():
             self.fitted_distributions.append(
-                distribution_dict[distribution](mean, variance)
+                distribution_dict[distribution](
+                    mean, variance, self.lb, self.ub
+                )
             )
         self.mean = mean
         self.variance = variance
@@ -254,6 +259,7 @@ class EnsembleDistribution:
         """
         fig, ax = plt.subplots(1, 2, figsize=(12, 6))
         scaling = 3 * np.sqrt(self.variance)
+        # TODO: THIS MAY CHANGE SINCE USER CAN NOW PUT LB AND UB
         lb = np.max([self.support[0], self.mean - scaling])
         ub = np.min([self.support[1], self.mean + scaling])
         support = np.linspace(lb, ub, 100)
@@ -296,6 +302,52 @@ class EnsembleDistribution:
         else:
             with open(file_path, "w") as outfile:
                 json.dump([distribution_summary], outfile)
+
+    @classmethod
+    def from_objs(
+        cls, fitted_distributions: List[Distribution]
+    ) -> EnsembleDistribution:
+        try:
+            mean, variance, lb, ub = (
+                fitted_distributions[0].mean,
+                fitted_distributions[0].variance,
+                fitted_distributions[0].lb,
+                fitted_distributions[0].ub,
+            )
+            named_weights = {}
+            for distribution in fitted_distributions:
+                if (
+                    distribution.mean != mean
+                    or distribution.variance != variance
+                    or distribution.lb != lb
+                    or distribution.ub != ub
+                ):
+                    raise ValueError(
+                        "means, variances, lower bounds, and upper bounds must match across all distributions\ncurrently, they are:"
+                    )
+                else:
+                    curr_weight = distribution._weight
+                    if curr_weight is None:
+                        raise ValueError(
+                            "_weight must be set in order to create an ensemble distribution from Distribution objects"
+                        )
+                    named_weights[type(distribution).__name__] = curr_weight
+            return cls(named_weights, mean, variance, lb, ub)
+        except ValueError as err:
+            if "means, variances" in str(err):
+                for distribution in fitted_distributions:
+                    print(
+                        type(distribution).__name__ + ":",
+                        "mean =",
+                        distribution.mean,
+                        "variance =",
+                        distribution.variance,
+                        "lb =",
+                        distribution.lb,
+                        "ub =",
+                        distribution.ub,
+                    )
+            raise
 
     @classmethod
     def from_json(cls, file_path: str) -> List[EnsembleDistribution]:
@@ -389,13 +441,23 @@ class EnsembleFitter:
         names of distributions in ensemble
     objective: str
         name of objective function for use in fitting ensemble
+    lb: str
+
 
     """
 
-    def __init__(self, distributions: List[str], objective: str):
+    def __init__(
+        self,
+        distributions: List[str],
+        objective: str,
+        lb: str = None,
+        ub: str = None,
+    ):
         self.support = _check_supports_match(distributions)
         self.distributions = distributions
         self.objective = objective
+        self.lb = lb
+        self.ub = ub
 
     def _objective_func(self, vec: np.ndarray) -> float:
         """applies different penalties to vector of distances given by user
@@ -449,7 +511,12 @@ class EnsembleFitter:
         # return self._objective_func(ecdf - cdfs @ weights)
         return -1 * cp.sum(cp.log(pdfs @ weights))
 
-    def fit(self, data: npt.ArrayLike) -> EnsembleResult:
+    def fit(
+        self,
+        data: npt.ArrayLike,
+        lb: float | None = None,
+        ub: float | None = None,
+    ) -> EnsembleResult:
         """fits weighted sum of CDFs corresponding to distributions in
         EnsembleModel object to empirical CDF of given data
 
@@ -487,12 +554,14 @@ class EnsembleFitter:
 
         # fill matrix with cdf values over support of data
         num_distributions = len(self.distributions)
+        fitted_distributions = []
         cdfs = np.zeros((len(data), num_distributions))
         pdfs = np.zeros((len(data), num_distributions))
         for i in range(num_distributions):
             curr_dist = distribution_dict[self.distributions[i]](
-                sample_mean, sample_variance
+                sample_mean, sample_variance, lb=lb, ub=ub
             )
+            fitted_distributions.append(curr_dist)
             cdfs[:, i] = curr_dist.cdf(equantiles)
             pdfs[:, i] = curr_dist.pdf(equantiles)
 
@@ -504,6 +573,8 @@ class EnsembleFitter:
         prob.solve()
 
         fitted_weights = w.value
+        for i in range(len(fitted_weights)):
+            fitted_distributions[i]._weight = fitted_weights[i]
 
         # ML implementation
         # w = cp.Variable(num_distributions)
@@ -515,11 +586,16 @@ class EnsembleFitter:
 
         res = EnsembleResult(
             weights=fitted_weights,
-            ensemble_distribution=EnsembleDistribution(
-                dict(zip(self.distributions, fitted_weights)),
-                sample_mean,
-                sample_variance,
+            ensemble_distribution=EnsembleDistribution.from_objs(
+                fitted_distributions
             ),
+            # ensemble_distribution=EnsembleDistribution(
+            #     dict(zip(self.distributions, fitted_weights)),
+            #     sample_mean,
+            #     sample_variance,
+            #     lb=lb,
+            #     ub=ub,
+            # ),
         )
 
         return res
@@ -559,7 +635,7 @@ def _check_supports_match(distributions: List[str]) -> Tuple[float, float]:
     """
     supports = set()
     for distribution in distributions:
-        supports.add(distribution_dict[distribution]().support())
+        supports.add(distribution_dict[distribution].support)
     if len(supports) != 1:
         raise ValueError(
             "the provided list of distributions do not all have the same support: "

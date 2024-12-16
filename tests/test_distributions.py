@@ -21,11 +21,20 @@ VARIANCE = 2
 
 
 def test_exp():
+    assert Exponential.support == (0, np.inf)
     exp = Exponential(MEAN, VARIANCE)
+    assert exp.support == (0, np.inf)
     res = exp.stats(moments="mv")
     exp_var = MEAN**2
     assert np.isclose(res[0], MEAN)
     assert np.isclose(res[1], exp_var)
+
+    exp2 = Exponential(MEAN, VARIANCE)
+    exp2.support = (1, np.inf)
+    res2 = exp2.stats(moments="mv")
+    exp_var2 = MEAN**2
+    assert np.isclose(res2[0], MEAN)
+    assert np.isclose(res2[1], exp_var2)
 
 
 def test_gamma():
@@ -98,7 +107,7 @@ def test_beta():
     assert np.isclose(res[1], BETA_VARIANCE)
 
 
-def test_incorrect_supports():
+def test_invalid_means():
     # negative means for only positive RVs
     with pytest.raises(ValueError):
         Exponential(NEG_MEAN, VARIANCE)
@@ -112,3 +121,16 @@ def test_incorrect_supports():
     # mean outside of 0 and 1 for Beta
     with pytest.raises(ValueError):
         Beta(NEG_MEAN, VARIANCE)
+
+
+def test_invalid_custom_supports():
+    with pytest.raises(ValueError):
+        Exponential(1, 1, ub=2)
+    with pytest.raises(ValueError):
+        Exponential(1, 1, lb=-np.inf)
+    with pytest.raises(ValueError):
+        Exponential(1, 1, ub=np.inf)
+    with pytest.raises(ValueError):
+        Normal(1, 1, lb=0)
+    with pytest.raises(ValueError):
+        Normal(1, 1, ub=0)
