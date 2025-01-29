@@ -106,6 +106,15 @@ def test_beta():
     assert np.isclose(res[0], BETA_MEAN)
     assert np.isclose(res[1], BETA_VARIANCE)
 
+    mean = 3
+    vari = 1
+    lb = 0
+    ub = 5
+    beta_alt = Beta(mean, vari, lb, ub)
+    res_alt = beta_alt.stats(moments="mv")
+    assert np.isclose(res_alt[0], mean)
+    assert np.isclose(res_alt[1], vari)
+
 
 def test_invalid_means():
     # negative means for only positive RVs

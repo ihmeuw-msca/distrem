@@ -307,6 +307,28 @@ class EnsembleDistribution:
     def from_objs(
         cls, fitted_distributions: List[Distribution]
     ) -> EnsembleDistribution:
+        """generates ensemble distribution from Distribution objects also from
+        the ensemble package. all parameters, such as mean, variance, upper
+        bound, and lower bound, must match
+
+        Parameters
+        ----------
+        fitted_distributions : List[Distribution]
+            list of distribution objects from the ensemble package
+
+        Returns
+        -------
+        EnsembleDistribution
+            ensemble distribution object with parameters equal to individual
+            input distributions
+
+        Raises
+        ------
+        ValueError
+            if parameters across individual distributions don't match
+        ValueError
+            if the weight of a distribution is not set
+        """
         try:
             mean, variance, lb, ub = (
                 fitted_distributions[0].mean,
@@ -441,8 +463,6 @@ class EnsembleFitter:
         names of distributions in ensemble
     objective: str
         name of objective function for use in fitting ensemble
-    lb: str
-
 
     """
 
@@ -450,14 +470,12 @@ class EnsembleFitter:
         self,
         distributions: List[str],
         objective: str,
-        lb: str = None,
-        ub: str = None,
     ):
         self.support = _check_supports_match(distributions)
         self.distributions = distributions
         self.objective = objective
-        self.lb = lb
-        self.ub = ub
+        # self.lb = lb
+        # self.ub = ub
 
     def _objective_func(self, vec: np.ndarray) -> float:
         """applies different penalties to vector of distances given by user
@@ -517,6 +535,7 @@ class EnsembleFitter:
         lb: float | None = None,
         ub: float | None = None,
     ) -> EnsembleResult:
+        # TODO: HOW SHOULD WE DESCRIBE UB AND LB?
         """fits weighted sum of CDFs corresponding to distributions in
         EnsembleModel object to empirical CDF of given data
 
@@ -524,6 +543,10 @@ class EnsembleFitter:
         ----------
         data : npt.ArrayLike
             individual-level data (i.e. microdata)
+        lb: float, optional
+            lower allowable bound of data, by default None
+        ub: float, optional
+            upper allowable bound of data, by default None
 
         Returns
         -------
@@ -604,7 +627,25 @@ class EnsembleFitter:
 ### HELPER FUNCTIONS
 
 
-def _check_valid_ensemble(distributions: List[str], weights: List[float]):
+def _check_valid_ensemble(
+    distributions: List[str], weights: List[float]
+) -> None:
+    """checks if ensemble distribution is valid
+
+    Parameters
+    ----------
+    distributions : List[str]
+        list of named distributions, as strings
+    weights : List[float]
+        list of weights, in order of provided distribution list
+
+    Raises
+    ------
+    ValueError
+        if there is a mismatch between num distributions and num weights
+    ValueError
+        if weights do not sum to 1
+    """
     if len(distributions) != len(weights):
         raise ValueError(
             "there must be the same number of distributions as weights!"

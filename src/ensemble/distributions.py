@@ -43,6 +43,8 @@ class Distribution(ABC, metaclass=ABCMeta):
             # not np.isinf(self.support[1]),
         ):
             case (True, True):
+                # print(np.isinf(self.support[0]))
+                # print(np.isinf(self.support[1]))
                 if np.isinf(self.support[0]) or np.isinf(self.support[1]):
                     raise ValueError(
                         "You may not change an infinite bound to be finite or"
@@ -348,8 +350,8 @@ class Beta(Distribution):
         lb: float = 0,
         ub: float = 1,
     ):
-        super().__init__(mean, variance, lb, ub)
         self.width = np.abs(ub - lb)
+        super().__init__(mean, variance, lb, ub)
 
     def _squeeze(self, x: float) -> float:
         """transform x to be within (0, 1)
@@ -392,8 +394,7 @@ class Beta(Distribution):
                 + "combinations. The supplied variance must be in between "
                 + "(0, mean^2)"
             )
-        beta_bounds(self.mean)
-        if self.lb != 0 and self.ub != 1:
+        if self.lb != 0 or self.ub != 1:
             mean = (self.mean - self.lb) / self.width
             var = self.variance / self.width
         else:
@@ -511,6 +512,6 @@ def strict_positive_support(mean: float) -> None:
         raise ValueError("This distribution is only supported on (0, np.inf)")
 
 
-def beta_bounds(mean: float) -> None:
-    if (mean < 0) or (mean > 1):
-        raise ValueError("This distribution is only supposrted on [0, 1]")
+# def beta_bounds(mean: float) -> None:
+#     if (mean < 0) or (mean > 1):
+#         raise ValueError("This distribution is only supposrted on [0, 1]")
