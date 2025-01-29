@@ -17,10 +17,10 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
     "Natural Language :: English",
 ]
-dependencies = []
+dependencies = ["numpy", "scipy", "cvxpy"]
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-cov", "numpy", "scipy"]
+test = ["pytest", "pytest-cov", "numpy", "scipy", "cvxpy"]
 docs = ["sphinx", "sphinx-autodoc-typehints", "furo"]
 
 [project.urls]
