@@ -504,6 +504,10 @@ class EnsembleFitter:
                 return cp.sum_squares(vec)
             case "KS":
                 return cp.norm(vec, "inf")
+            case _:
+                raise ValueError(
+                    "Your choice of objective function hasn't been implemented!"
+                )
 
     def _ensemble_func_temp(
         self,
