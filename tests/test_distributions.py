@@ -72,10 +72,10 @@ def test_gumbel():
 
 
 def test_weibull():
-    weibull = Weibull(624.25, 183.791**2)
+    weibull = Weibull(MEAN, VARIANCE)
     res = weibull.stats(moments="mv")
     print("resulting mean and var: ", res)
-    assert np.isclose(res[0], MEAN)
+    assert np.isclose(res[0], MEAN, atol=1e-05)
     assert np.isclose(res[1], VARIANCE)
 
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from abc import ABC, ABCMeta, abstractmethod
-from typing import Tuple, Union
+from abc import ABC, abstractmethod
 
 import numpy as np
 import numpy.typing as npt
@@ -9,10 +8,8 @@ import scipy.optimize as opt
 import scipy.stats as stats
 from scipy.special import gamma as gamma_func
 
-# from scipy.special import gammainccinv, gammaincinv
 
-
-class Distribution(ABC, metaclass=ABCMeta):
+class Distribution(ABC):
     """Abstract class for objects that fit scipy distributions given a certain
     mean/variance, and return a limited amount of the original functionality
     of the original scipy rv_continuous object.
@@ -101,7 +98,7 @@ class Distribution(ABC, metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def support(self) -> Tuple[float, float]:
+    def support(self) -> tuple[float, float]:
         """create tuple representing endpoints of support"""
         pass
 
@@ -171,7 +168,7 @@ class Distribution(ABC, metaclass=ABCMeta):
         """
         return self._shift(self._scipy_dist.ppf(p))
 
-    def stats(self, moments: str) -> Union[float, Tuple[float, ...]]:
+    def stats(self, moments: str) -> float | tuple[float, ...]:
         """defaults to scipy implementation for obtaining moments
 
         Parameters
@@ -181,7 +178,7 @@ class Distribution(ABC, metaclass=ABCMeta):
 
         Returns
         -------
-        Union[float, Tuple[float, ...]]
+        float | tuple[float, ...]
             mean, variance, skewness, and/or kurtosis
         """
         # return self._scipy_dist.stats(moments=moments)
@@ -285,7 +282,7 @@ class GumbelR(Distribution):
 class Weibull(Distribution):
     """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.weibull_min.html#scipy.stats.weibull_min"""
 
-    # def support(self) -> Tuple[float, float]:
+    # def support(self) -> tuple[float, float]:
     #     return (0, np.inf)
     support = (0, np.inf)
 
@@ -293,7 +290,9 @@ class Weibull(Distribution):
         positive_support(self.mean)
 
         # https://real-statistics.com/distribution-fitting/method-of-moments/method-of-moments-weibull/
-        k = opt.root_scalar(self._func, x0=0.5, method="newton")
+        #   alpha == lambda
+        #   beta == k
+        k = opt.root_scalar(self._func, x0=0.1, method="newton")
         lambda_ = csd_mean / gamma_func(1 + 1 / k.root)
         print("hi!", lambda_, k.root)
 
@@ -302,7 +301,7 @@ class Weibull(Distribution):
 
     def _func(self, k: float) -> None:
         return (
-            np.log(1 + (2 / k))
+            np.log((gamma_func(1 + (2 / k))))
             - 2 * np.log(gamma_func(1 + (1 / k)))
             - np.log(self.variance + self.mean**2)
             + 2 * np.log(self.mean)
@@ -383,7 +382,7 @@ class Beta(Distribution):
         """
         return (x + self.lb) * self.width
 
-    # def support(self) -> Tuple[float, float]:
+    # def support(self) -> tuple[float, float]:
     #     return (self.lb, self.ub)
 
     def _create_scipy_dist(self, csd_mean) -> None:
@@ -462,7 +461,7 @@ class Beta(Distribution):
         """
         return self._stretch(self._scipy_dist.ppf(p))
 
-    def stats(self, moments: str) -> Union[float, Tuple[float, ...]]:
+    def stats(self, moments: str) -> float | tuple[float, ...]:
         """defaults to scipy implementation for obtaining moments
 
         Parameters
@@ -472,7 +471,7 @@ class Beta(Distribution):
 
         Returns
         -------
-        Union[float, Tuple[float, ...]]
+        float | tuple[float, ...]
             mean, variance, skewness, and/or kurtosis
         """
         res_list = []

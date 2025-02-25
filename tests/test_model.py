@@ -148,7 +148,7 @@ def test_restricted_moments():
     mean = 4
     variance = 1
     ex_bounded = EnsembleDistribution({"Gamma": 0.7, "Fisk": 0.3}, 4, 1, lb=2)
-    bounded_rvs = ex_bounded.rvs(100000)
+    bounded_rvs = ex_bounded.rvs(1000000)
     print(np.var(bounded_rvs, ddof=1))
     assert np.isclose(np.mean(bounded_rvs), mean, atol=1e-02)
     assert np.isclose(np.var(bounded_rvs, ddof=1), variance, atol=1e-02)

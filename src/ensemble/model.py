@@ -1,8 +1,5 @@
-from __future__ import annotations
-
 import json
 import warnings
-from typing import List, Tuple, Union
 
 import cvxpy as cp
 import matplotlib.pyplot as plt
@@ -23,9 +20,9 @@ class EnsembleDistribution:
     Parameters
     ----------
 
-    distributions: List[str]
+    distributions: list[str]
         names of distributions in ensemble
-    weights: List[float]
+    weights: list[float]
         weight assigned to each distribution in ensemble
     mean: float
         desired mean of ensemble distribution
@@ -123,7 +120,7 @@ class EnsembleDistribution:
 
         return opt.brentq(self._ppf_to_solve, left, right, args=p)
 
-    def pdf(self, x: npt.ArrayLike) -> np.ndarray:
+    def pdf(self, x: npt.ArrayLike) -> npt.ndarray:
         """probability density function of ensemble distribution
 
         Parameters
@@ -133,7 +130,7 @@ class EnsembleDistribution:
 
         Returns
         -------
-        np.ndarray
+        npt.NDArray
             ensemble PDF evaluated at quantile x
 
         """
@@ -144,7 +141,7 @@ class EnsembleDistribution:
             )
         )
 
-    def cdf(self, q: npt.ArrayLike) -> np.ndarray:
+    def cdf(self, q: npt.ArrayLike) -> npt.NDArray:
         """cumulative density function of ensemble distribution
 
         Parameters
@@ -154,7 +151,7 @@ class EnsembleDistribution:
 
         Returns
         -------
-        np.ndarray
+        npt.NDArray
             ensemble CDF evaluated at quantile x
 
         """
@@ -165,7 +162,7 @@ class EnsembleDistribution:
             )
         )
 
-    def ppf(self, p: npt.ArrayLike, uncertainty: bool = True) -> np.ndarray:
+    def ppf(self, p: npt.ArrayLike, uncertainty: bool = True) -> npt.NDArray:
         """percent point function of ensemble distribution
 
         Parameters
@@ -177,14 +174,14 @@ class EnsembleDistribution:
 
         Returns
         -------
-        np.ndarray
+        npt.NDArray
             quantile corresponding to lower tail probability p
 
         """
         ppf_vec = np.vectorize(self._ppf_single, otypes="d")
         return ppf_vec(p)
 
-    def rvs(self, size: int = 1) -> np.ndarray:
+    def rvs(self, size: int = 1) -> npt.NDArray:
         """random variates from ensemble distribution
 
         Parameters
@@ -194,7 +191,7 @@ class EnsembleDistribution:
 
         Returns
         -------
-        np.ndarray
+        npt.NDArray
             individual draws from ensemble distribution
 
         """
@@ -223,9 +220,7 @@ class EnsembleDistribution:
         np.random.shuffle(samples)
         return samples
 
-    def stats_temp(
-        self, moments: str = "mv"
-    ) -> Union[float, Tuple[float, float]]:
+    def stats_temp(self, moments: str = "mv") -> float | tuple[float, float]:
         """retrieves mean and/or variance of ensemble distribution based on
         characters passed into moments parameter
 
@@ -236,7 +231,7 @@ class EnsembleDistribution:
 
         Returns
         -------
-        Union[float, Tuple[float, float]]
+        float | tuple[float, float]
             mean, variance, or both
 
         """
@@ -305,15 +300,15 @@ class EnsembleDistribution:
 
     @classmethod
     def from_objs(
-        cls, fitted_distributions: List[Distribution]
-    ) -> EnsembleDistribution:
+        cls, fitted_distributions: list[Distribution]
+    ) -> "EnsembleDistribution":
         """generates ensemble distribution from Distribution objects also from
         the ensemble package. all parameters, such as mean, variance, upper
         bound, and lower bound, must match
 
         Parameters
         ----------
-        fitted_distributions : List[Distribution]
+        fitted_distributions : list[Distribution]
             list of distribution objects from the ensemble package
 
         Returns
@@ -372,7 +367,7 @@ class EnsembleDistribution:
             raise
 
     @classmethod
-    def from_json(cls, file_path: str) -> List[EnsembleDistribution]:
+    def from_json(cls, file_path: str) -> list["EnsembleDistribution"]:
         """deserializes JSON object into list of Ensemble Distribution objects
 
         Parameters
@@ -382,7 +377,7 @@ class EnsembleDistribution:
 
         Returns
         -------
-        List[EnsembleDistribution]
+        list["EnsembleDistribution"]
             list of EnsembleDistribution objects
         """
         with open(file_path, "r") as infile:
@@ -400,7 +395,7 @@ class EnsembleDistribution:
         return res
 
 
-# def from_json(file_path: str) -> List[EnsembleDistribution]:
+# def from_json(file_path: str) -> list["EnsembleDistribution"]:
 #     """deserializes JSON object into list of Ensemble Distribution objects
 
 #     Parameters
@@ -410,7 +405,7 @@ class EnsembleDistribution:
 
 #     Returns
 #     -------
-#     List[EnsembleDistribution]
+#     list["EnsembleDistribution"]
 #         list of EnsembleDistribution objects
 #     """
 #     with open(file_path, "r") as infile:
@@ -434,14 +429,14 @@ class EnsembleResult:
     Parameters
     ----------
 
-    weights: List[str]
+    weights: list[str]
         Weights of each distribution in the ensemble
     ensemble_model: EnsembleModel
         EnsembleModel object allowing user to get density, draws, etc...
 
     """
 
-    weights: Tuple[str, float]
+    weights: tuple[str, float]
     ensemble_model: EnsembleDistribution
 
     def __init__(
@@ -459,7 +454,7 @@ class EnsembleFitter:
 
     Parameters
     ----------
-    distributions: List[str]
+    distributions: list[str]
         names of distributions in ensemble
     objective: str
         name of objective function for use in fitting ensemble
@@ -468,7 +463,7 @@ class EnsembleFitter:
 
     def __init__(
         self,
-        distributions: List[str],
+        distributions: list[str],
         objective: str,
     ):
         self.support = _check_supports_match(distributions)
@@ -477,12 +472,12 @@ class EnsembleFitter:
         # self.lb = lb
         # self.ub = ub
 
-    def _objective_func(self, vec: np.ndarray) -> float:
+    def _objective_func(self, vec: npt.NDArray) -> float:
         """applies different penalties to vector of distances given by user
 
         Parameters
         ----------
-        vec : np.ndarray
+        vec : npt.NDArray
             distances, in this case, between empirical and ensemble CDFs
         objective : str
             name of objective function
@@ -511,18 +506,18 @@ class EnsembleFitter:
 
     def _ensemble_func_temp(
         self,
-        weights: List[float],
-        pdfs,  # , ecdf: np.ndarray, cdfs: np.ndarray
+        weights: list[float],
+        pdfs,  # , ecdf: npt.NDArray, cdfs: npt.NDArray
     ) -> float:
         """
 
         Parameters
         ----------
-        weights : List[float]
+        weights : list[float]
             _description_
-        ecdf : np.ndarray
+        ecdf : npt.NDArray
             _description_
-        cdfs : np.ndarray
+        cdfs : npt.NDArray
             _description_
 
         Returns
@@ -632,15 +627,15 @@ class EnsembleFitter:
 
 
 def _check_valid_ensemble(
-    distributions: List[str], weights: List[float]
+    distributions: list[str], weights: list[float]
 ) -> None:
     """checks if ensemble distribution is valid
 
     Parameters
     ----------
-    distributions : List[str]
+    distributions : list[str]
         list of named distributions, as strings
-    weights : List[float]
+    weights : list[float]
         list of weights, in order of provided distribution list
 
     Raises
@@ -658,17 +653,17 @@ def _check_valid_ensemble(
         raise ValueError("weights must sum to 1")
 
 
-def _check_supports_match(distributions: List[str]) -> Tuple[float, float]:
+def _check_supports_match(distributions: list[str]) -> tuple[float, float]:
     """checks that supports of all distributions given are *exactly* the same
 
     Parameters
     ----------
-    distributions : List[str]
+    distributions : list[str]
         names of distributions
 
     Returns
     -------
-    supports: Tuple[float, float]
+    supports: tuple[float, float]
         support of ensemble distributions given that all distributions in
         ensemble are compatible
 
