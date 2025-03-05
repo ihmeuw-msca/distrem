@@ -538,36 +538,24 @@ class EnsembleFitter:
         prob = cp.Problem(objective, constraints)
         prob.solve()
 
+        # assign weights to each distribution object
         fitted_weights = w.value
         for i in range(len(fitted_weights)):
             fitted_distributions[i]._weight = fitted_weights[i]
-
-        # ML implementation
-        # w = cp.Variable(num_distributions)
-        # objective = cp.Minimize(-1 * cp.sum(cp.log(pdfs @ w)))
-        # constraints = [0 <= w, cp.sum(w) == 1]
-        # prob = cp.Problem(objective, constraints)
-        # prob.solve()
-        # fitted_weights = w.value
 
         res = EnsembleResult(
             weights=fitted_weights,
             ensemble_distribution=EnsembleDistribution.from_objs(
                 fitted_distributions
             ),
-            # ensemble_distribution=EnsembleDistribution(
-            #     dict(zip(self.distributions, fitted_weights)),
-            #     sample_mean,
-            #     sample_variance,
-            #     lb=lb,
-            #     ub=ub,
-            # ),
         )
 
         return res
 
 
+####################
 ### HELPER FUNCTIONS
+####################
 
 
 def _check_valid_ensemble(
