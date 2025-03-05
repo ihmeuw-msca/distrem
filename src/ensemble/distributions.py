@@ -278,12 +278,10 @@ class GumbelR(Distribution):
         self._scipy_dist = stats.gumbel_r(loc=loc, scale=scale)
 
 
-# hopelessly broken (sort of)
+# optimization via Newton's method
 class Weibull(Distribution):
     """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.weibull_min.html#scipy.stats.weibull_min"""
 
-    # def support(self) -> tuple[float, float]:
-    #     return (0, np.inf)
     support = (0, np.inf)
 
     def _create_scipy_dist(self, csd_mean) -> None:
@@ -294,9 +292,7 @@ class Weibull(Distribution):
         #   beta == k
         k = opt.root_scalar(self._func, x0=0.1, method="newton")
         lambda_ = csd_mean / gamma_func(1 + 1 / k.root)
-        print("hi!", lambda_, k.root)
 
-        # most likely a parameterization issue
         self._scipy_dist = stats.weibull_min(c=k.root, scale=lambda_)
 
     def _func(self, k: float) -> None:
@@ -402,9 +398,7 @@ class Beta(Distribution):
 
         alpha = (mean**2 * (1 - mean) - mean * var) / var
         beta = (1 - mean) * (mean - mean**2 - var) / var
-        print(alpha, beta)
         self._scipy_dist = stats.beta(a=alpha, b=beta)
-        print(self._scipy_dist.stats("mv"))
 
     def rvs(self, *args, **kwds):
         """defaults to scipy implementation for generating random variates

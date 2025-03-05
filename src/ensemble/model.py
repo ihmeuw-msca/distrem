@@ -17,28 +17,27 @@ class EnsembleDistribution:
     features include: pdf, cdf, ppf, rvs (random draws), and stats (first 2
     moments) functions
 
-    Parameters
-    ----------
-
-    distributions: list[str]
-        names of distributions in ensemble
-    weights: list[float]
-        weight assigned to each distribution in ensemble
-    mean: float
-        desired mean of ensemble distribution
-    varaince: float
-        desired variance of ensemble distribution
-
+        Parameters
+        ----------
+        named_weights : dict[str, float]
+            dictionary of distributions as keys w/corresponding weights as values
+        mean : float
+            desired mean of ensemble distribution
+        variance : float
+            desired variance of ensemble distribution
+        lb : float, optional
+            desired lower bound of ensemble distribution, by default None
+        ub : float, optional
+            desired upper bound of ensemble distribution, by default None
     """
 
     def __init__(
         self,
-        named_weights: dict,
+        named_weights: dict[str, float],
         mean: float,
         variance: float,
         lb: float = None,
         ub: float = None,
-        # TODO: strict mode to enforce ub/lb vs not doing stuff?
     ):
         self._distributions = list(named_weights.keys())
         self._weights = list(named_weights.values())
@@ -120,7 +119,7 @@ class EnsembleDistribution:
 
         return opt.brentq(self._ppf_to_solve, left, right, args=p)
 
-    def pdf(self, x: npt.ArrayLike) -> npt.ndarray:
+    def pdf(self, x: npt.ArrayLike) -> npt.NDArray:
         """probability density function of ensemble distribution
 
         Parameters
@@ -220,7 +219,9 @@ class EnsembleDistribution:
         np.random.shuffle(samples)
         return samples
 
-    def stats_temp(self, moments: str = "mv") -> float | tuple[float, float]:
+    def ensemble_stats(
+        self, moments: str = "mv"
+    ) -> float | tuple[float, float]:
         """retrieves mean and/or variance of ensemble distribution based on
         characters passed into moments parameter
 
@@ -241,7 +242,6 @@ class EnsembleDistribution:
         if "v" in moments:
             res_list.append(self.variance)
 
-        # res_list = [res[()] for res in res_list]
         if len(res_list) == 1:
             return res_list[0]
         else:
@@ -254,7 +254,6 @@ class EnsembleDistribution:
         """
         fig, ax = plt.subplots(1, 2, figsize=(12, 6))
         scaling = 3 * np.sqrt(self.variance)
-        # TODO: THIS MAY CHANGE SINCE USER CAN NOW PUT LB AND UB
         lb = np.max([self.support[0], self.mean - scaling])
         ub = np.min([self.support[1], self.mean + scaling])
         support = np.linspace(lb, ub, 100)
@@ -395,34 +394,6 @@ class EnsembleDistribution:
         return res
 
 
-# def from_json(file_path: str) -> list["EnsembleDistribution"]:
-#     """deserializes JSON object into list of Ensemble Distribution objects
-
-#     Parameters
-#     ----------
-#     file_path : str
-#         path to file that JSON object is stored in
-
-#     Returns
-#     -------
-#     list["EnsembleDistribution"]
-#         list of EnsembleDistribution objects
-#     """
-#     with open(file_path, "r") as infile:
-#         distribution_summaries = json.load(infile)
-
-#     res = [None] * len(distribution_summaries)
-#     for i in range(len(distribution_summaries)):
-#         named_weights, mean, variance = (
-#             distribution_summaries[i]["named_weights"],
-#             distribution_summaries[i]["mean"],
-#             distribution_summaries[i]["variance"],
-#         )
-#         res[i] = EnsembleDistribution(named_weights, mean, variance)
-
-#     return res
-
-
 class EnsembleResult:
     """Result from ensemble distribution fitting
 
@@ -469,8 +440,6 @@ class EnsembleFitter:
         self.support = _check_supports_match(distributions)
         self.distributions = distributions
         self.objective = objective
-        # self.lb = lb
-        # self.ub = ub
 
     def _objective_func(self, vec: npt.NDArray) -> float:
         """applies different penalties to vector of distances given by user
@@ -504,37 +473,12 @@ class EnsembleFitter:
                     "Your choice of objective function hasn't been implemented!"
                 )
 
-    def _ensemble_func_temp(
-        self,
-        weights: list[float],
-        pdfs,  # , ecdf: npt.NDArray, cdfs: npt.NDArray
-    ) -> float:
-        """
-
-        Parameters
-        ----------
-        weights : list[float]
-            _description_
-        ecdf : npt.NDArray
-            _description_
-        cdfs : npt.NDArray
-            _description_
-
-        Returns
-        -------
-        float
-            _description_
-        """
-        # return self._objective_func(ecdf - cdfs @ weights)
-        return -1 * cp.sum(cp.log(pdfs @ weights))
-
     def fit(
         self,
         data: npt.ArrayLike,
         lb: float | None = None,
         ub: float | None = None,
     ) -> EnsembleResult:
-        # TODO: HOW SHOULD WE DESCRIBE UB AND LB?
         """fits weighted sum of CDFs corresponding to distributions in
         EnsembleModel object to empirical CDF of given data
 
@@ -600,7 +544,7 @@ class EnsembleFitter:
 
         # ML implementation
         # w = cp.Variable(num_distributions)
-        # objective = cp.Minimize(self._ensemble_func_temp(w, pdfs))
+        # objective = cp.Minimize(-1 * cp.sum(cp.log(pdfs @ w)))
         # constraints = [0 <= w, cp.sum(w) == 1]
         # prob = cp.Problem(objective, constraints)
         # prob.solve()
