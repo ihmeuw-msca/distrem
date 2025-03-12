@@ -15,7 +15,7 @@ things that you may want to plot, but 2 useful plots that will be demonstrated b
     # generate SBP data and fit model as before
     data = stats.norm(loc=120, scale=7).rvs(size=100)
     model = EnsembleFitter(
-        distributions=["gamma", "invgamma", "fisk", "lognormal"],
+        distributions=["Gamma", "InvGamma", "Fisk", "LogNormal"],
         objective="L2"
     )
     res = model.fit(data)

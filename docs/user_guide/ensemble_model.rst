@@ -14,6 +14,7 @@ interact with this file to be able to perform the functions described in the doc
 6. Log-Normal
 7. Normal
 8. Beta
+9. Weibull
 
 These distributions have "supports" that differ from each other. A support, for our purposes, can be
 thought of as the x values that are compatible with some given distribution. For example, the Normal
@@ -47,7 +48,7 @@ In code form, this looks like...
     from ensemble.model import EnsembleDistribution
 
     ensemble_ex = EnsembleDistribution(
-        distributions=["normal", "gumbel"],
+        distributions=["Normal", "GumbelR"],
         weights=[0.7, 0.3],
         mean=-4
         variance=5

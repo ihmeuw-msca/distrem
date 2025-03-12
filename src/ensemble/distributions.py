@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from abc import ABC, ABCMeta, abstractmethod
-from typing import Tuple, Union
+from abc import ABC, abstractmethod
 
 import numpy as np
 import numpy.typing as npt
@@ -9,10 +8,8 @@ import scipy.optimize as opt
 import scipy.stats as stats
 from scipy.special import gamma as gamma_func
 
-# from scipy.special import gammainccinv, gammaincinv
 
-
-class Distribution(ABC, metaclass=ABCMeta):
+class Distribution(ABC):
     """Abstract class for objects that fit scipy distributions given a certain
     mean/variance, and return a limited amount of the original functionality
     of the original scipy rv_continuous object.
@@ -26,11 +23,6 @@ class Distribution(ABC, metaclass=ABCMeta):
         self.variance = variance
         self.lb = lb
         self.ub = ub
-        # # some kind of dictionary with
-        # #   key: the support (full real line, semi infinite, etc...)
-        # #   value: function that gets called when distribution is initialized
-        # self.support = None
-        # self._support_setup()
         self.shifted_mean = None
         self._scipy_dist = None
         # ONLY for use when creating ensemble from pre-fitted distributions
@@ -38,13 +30,8 @@ class Distribution(ABC, metaclass=ABCMeta):
         match (
             self.lb is not None and not np.isinf(self.lb),
             self.ub is not None and not np.isinf(self.ub),
-            # np.isinf(self.lb) or np.isinf(self.ub),
-            # not np.isinf(self.support[0]),
-            # not np.isinf(self.support[1]),
         ):
             case (True, True):
-                # print(np.isinf(self.support[0]))
-                # print(np.isinf(self.support[1]))
                 if np.isinf(self.support[0]) or np.isinf(self.support[1]):
                     raise ValueError(
                         "You may not change an infinite bound to be finite or"
@@ -66,7 +53,6 @@ class Distribution(ABC, metaclass=ABCMeta):
                         "mean must be between upper and lower bounds"
                     )
                 self.support = (lb, self.support[1])
-                # self.mean = self.mean - lb
                 self.shifted_mean = self.mean - lb
             case (False, True):
                 if np.isinf(self.support[1]):
@@ -101,7 +87,7 @@ class Distribution(ABC, metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def support(self) -> Tuple[float, float]:
+    def support(self) -> tuple[float, float]:
         """create tuple representing endpoints of support"""
         pass
 
@@ -109,12 +95,6 @@ class Distribution(ABC, metaclass=ABCMeta):
         if self.lb is not None:
             return x - self.lb
         return x
-
-    # def validate_finite_bounds(self, b1, b2):
-    #     if np.isinf(b1) or np.isinf(b2):
-    #         raise ValueError(
-    #             "you may not change an infinite bound to be finite or set a bound to be infinite"
-    #         )
 
     def rvs(self, *args, **kwds):
         """defaults to scipy implementation for generating random variates
@@ -171,7 +151,7 @@ class Distribution(ABC, metaclass=ABCMeta):
         """
         return self._shift(self._scipy_dist.ppf(p))
 
-    def stats(self, moments: str) -> Union[float, Tuple[float, ...]]:
+    def stats(self, moments: str) -> float | tuple[float, ...]:
         """defaults to scipy implementation for obtaining moments
 
         Parameters
@@ -181,17 +161,15 @@ class Distribution(ABC, metaclass=ABCMeta):
 
         Returns
         -------
-        Union[float, Tuple[float, ...]]
+        float | tuple[float, ...]
             mean, variance, skewness, and/or kurtosis
         """
-        # return self._scipy_dist.stats(moments=moments)
         res_list = []
         if "m" in moments:
             res_list.append(self._shift(self._scipy_dist.stats("m")))
         if "v" in moments:
             res_list.append(self._scipy_dist.stats("v"))
 
-        # res_list = [res[()] for res in res_list]
         if len(res_list) == 1:
             return res_list[0]
         else:
@@ -245,17 +223,15 @@ class Fisk(Distribution):
     def _create_scipy_dist(self, csd_mean):
         positive_support(self.mean)
 
+        beta_0 = 1.1
         optim_params = opt.minimize(
             fun=self._shape_scale,
-            # start beta at 1.1 and solve for alpha
-            x0=[csd_mean * 1.1 * np.sin(np.pi / 1.1) / np.pi, 1.1],
+            x0=[csd_mean * beta_0 * np.sin(np.pi / beta_0) / np.pi, beta_0],
             args=(csd_mean, self.variance),
-            # options={"disp": True},
         )
         alpha, beta = np.abs(optim_params.x)
         # parameterization notes: numpy's c is wikipedia's beta, numpy's scale is wikipedia's alpha
         # additional note: analytical solution doesn't work b/c dependent on derivative
-        # print("from optim: ", alpha, beta)
         self._scipy_dist = stats.fisk(c=beta, scale=alpha)
 
     def _shape_scale(self, x: list, samp_mean: float, samp_var: float) -> None:
@@ -281,28 +257,26 @@ class GumbelR(Distribution):
         self._scipy_dist = stats.gumbel_r(loc=loc, scale=scale)
 
 
-# hopelessly broken (sort of)
+# optimization via Newton's method
 class Weibull(Distribution):
     """https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.weibull_min.html#scipy.stats.weibull_min"""
 
-    # def support(self) -> Tuple[float, float]:
-    #     return (0, np.inf)
     support = (0, np.inf)
 
     def _create_scipy_dist(self, csd_mean) -> None:
         positive_support(self.mean)
 
         # https://real-statistics.com/distribution-fitting/method-of-moments/method-of-moments-weibull/
-        k = opt.root_scalar(self._func, x0=0.5, method="newton")
+        #   alpha == lambda
+        #   beta == k
+        k = opt.root_scalar(self._func, x0=0.1, method="newton")
         lambda_ = csd_mean / gamma_func(1 + 1 / k.root)
-        print("hi!", lambda_, k.root)
 
-        # most likely a parameterization issue
         self._scipy_dist = stats.weibull_min(c=k.root, scale=lambda_)
 
     def _func(self, k: float) -> None:
         return (
-            np.log(1 + (2 / k))
+            np.log((gamma_func(1 + (2 / k))))
             - 2 * np.log(gamma_func(1 + (1 / k)))
             - np.log(self.variance + self.mean**2)
             + 2 * np.log(self.mean)
@@ -383,11 +357,7 @@ class Beta(Distribution):
         """
         return (x + self.lb) * self.width
 
-    # def support(self) -> Tuple[float, float]:
-    #     return (self.lb, self.ub)
-
     def _create_scipy_dist(self, csd_mean) -> None:
-        # TODO: what happens here if the mean and variance are shifted?
         if self.mean**2 <= self.variance:
             raise ValueError(
                 "beta distributions do not exist for certain mean and variance "
@@ -403,9 +373,7 @@ class Beta(Distribution):
 
         alpha = (mean**2 * (1 - mean) - mean * var) / var
         beta = (1 - mean) * (mean - mean**2 - var) / var
-        print(alpha, beta)
         self._scipy_dist = stats.beta(a=alpha, b=beta)
-        print(self._scipy_dist.stats("mv"))
 
     def rvs(self, *args, **kwds):
         """defaults to scipy implementation for generating random variates
@@ -462,7 +430,7 @@ class Beta(Distribution):
         """
         return self._stretch(self._scipy_dist.ppf(p))
 
-    def stats(self, moments: str) -> Union[float, Tuple[float, ...]]:
+    def stats(self, moments: str) -> float | tuple[float, ...]:
         """defaults to scipy implementation for obtaining moments
 
         Parameters
@@ -472,7 +440,7 @@ class Beta(Distribution):
 
         Returns
         -------
-        Union[float, Tuple[float, ...]]
+        float | tuple[float, ...]
             mean, variance, skewness, and/or kurtosis
         """
         res_list = []
@@ -481,7 +449,6 @@ class Beta(Distribution):
         if "v" in moments:
             res_list.append(self._scipy_dist.stats("v") * self.width)
 
-        # res_list = [res[()] for res in res_list]
         if len(res_list) == 1:
             return res_list[0]
         else:
@@ -510,8 +477,3 @@ def positive_support(mean: float) -> None:
 def strict_positive_support(mean: float) -> None:
     if mean <= 0:
         raise ValueError("This distribution is only supported on (0, np.inf)")
-
-
-# def beta_bounds(mean: float) -> None:
-#     if (mean < 0) or (mean > 1):
-#         raise ValueError("This distribution is only supposrted on [0, 1]")

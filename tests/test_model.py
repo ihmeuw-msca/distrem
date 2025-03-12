@@ -21,7 +21,7 @@ ENSEMBLE_POS_DRAWS2 = EnsembleDistribution(
     named_weights={"Exponential": 0.3, "LogNormal": 0.5, "Fisk": 0.2},
     mean=40,
     variance=5,
-)
+).rvs(size=100)
 
 
 DEFAULT_SETTINGS = (1, 1)
@@ -52,17 +52,17 @@ def test_incompatible_dists():
 def test_incompatible_data():
     neg_data = np.linspace(-1, 1, 100)
     with pytest.raises(ValueError):
-        EnsembleFitter(["Exponential", "Fisk"], "L2").fit(neg_data)
+        EnsembleFitter(["Exponential", "Fisk"], "L1").fit(neg_data)
     with pytest.raises(ValueError):
-        EnsembleFitter(["Beta"], "L2").fit(neg_data)
+        EnsembleFitter(["Beta"], "L1").fit(neg_data)
 
 
 def test_resulting_weights():
-    model = EnsembleFitter(["Normal"], "L2")
+    model = EnsembleFitter(["Normal"], "L1")
     res = model.fit(STD_NORMAL_DRAWS)
     assert np.isclose(np.sum(res.weights), 1)
 
-    model1 = EnsembleFitter(["Normal", "GumbelR"], "L2")
+    model1 = EnsembleFitter(["Normal", "GumbelR"], "L1")
     res1 = model1.fit(ENSEMBLE_RL_DRAWS)
     assert np.isclose(np.sum(res1.weights), 1)
 
@@ -80,6 +80,23 @@ def test_bounds():
         EnsembleDistribution({"Exponential": 0.5, "Gamma": 0.5}, 1, 1, ub=0)
     with pytest.raises(ValueError):
         EnsembleDistribution({"Exponential": 0.5, "Gamma": 0.5}, 1, 1, lb=4)
+
+
+def test_objective_funcs():
+    bad_obj = EnsembleFitter(["Normal"], "not_an_obj_func")
+    with pytest.raises(ValueError):
+        bad_obj.fit(STD_NORMAL_DRAWS)
+    model_L1 = EnsembleFitter(["Fisk", "Gamma"], "L1")
+    model_L1.fit(ENSEMBLE_POS_DRAWS)
+    model_L1.fit(ENSEMBLE_POS_DRAWS2)
+
+    model_sumsq = EnsembleFitter(["Fisk", "Gamma"], "sum_squares")
+    model_sumsq.fit(ENSEMBLE_POS_DRAWS)
+    model_sumsq.fit(ENSEMBLE_POS_DRAWS2)
+
+    model_KS = EnsembleFitter(["Fisk", "Gamma"], "KS")
+    model_KS.fit(ENSEMBLE_POS_DRAWS)
+    model_KS.fit(ENSEMBLE_POS_DRAWS2)
 
 
 def test_from_obj():
@@ -122,6 +139,16 @@ def test_json():
     model1.to_json("tests/test_read.json", appending=True)
 
     m1 = EnsembleDistribution.from_json("tests/test_read.json")[1]
-    assert m1.stats_temp("mv") == DEFAULT_SETTINGS
+    assert m1.ensemble_stats("mv") == DEFAULT_SETTINGS
     assert m1._distributions == ["Gamma", "InvGamma"]
     assert m1._weights == [0.2, 0.8]
+
+
+def test_restricted_moments():
+    mean = 4
+    variance = 1
+    ex_bounded = EnsembleDistribution({"Gamma": 0.7, "Fisk": 0.3}, 4, 1, lb=2)
+    bounded_rvs = ex_bounded.rvs(1000000)
+    print(np.var(bounded_rvs, ddof=1))
+    assert np.isclose(np.mean(bounded_rvs), mean, atol=1e-02)
+    assert np.isclose(np.var(bounded_rvs, ddof=1), variance, atol=1e-02)

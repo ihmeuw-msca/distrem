@@ -33,8 +33,8 @@ equivalent to sampling from individual distributions with probability of samplin
 distribution dictated by a multinomial distribution, the latter method has been chosen here for
 efficiency purposes.
 
-stats_temp
-^^^^^^^^^^
+ensemble_stats
+^^^^^^^^^^^^^^
 
 A getter function for the mean and variance supplied to the EnsembleDistribution object, does not
 supply skewness and kurtosis like scipy's :code:`stats()`.
