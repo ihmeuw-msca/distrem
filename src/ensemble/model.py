@@ -17,18 +17,18 @@ class EnsembleDistribution:
     features include: pdf, cdf, ppf, rvs (random draws), and stats (first 2
     moments) functions
 
-        Parameters
-        ----------
-        named_weights : dict[str, float]
-            dictionary of distributions as keys w/corresponding weights as values
-        mean : float
-            desired mean of ensemble distribution
-        variance : float
-            desired variance of ensemble distribution
-        lb : float, optional
-            desired lower bound of ensemble distribution, by default None
-        ub : float, optional
-            desired upper bound of ensemble distribution, by default None
+    Parameters
+    ----------
+    named_weights : dict[str, float]
+        dictionary of distributions as keys w/corresponding weights as values
+    mean : float
+        desired mean of ensemble distribution
+    variance : float
+        desired variance of ensemble distribution
+    lb : float, optional
+        desired lower bound of ensemble distribution, by default None
+    ub : float, optional
+        desired upper bound of ensemble distribution, by default None
     """
 
     def __init__(
