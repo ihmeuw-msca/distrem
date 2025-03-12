@@ -46,6 +46,7 @@ that has already been initialized with the distributions provided to :code:`mode
 accessed as follows:
 
 .. code-block:: python
+
     # fitted weights
     fitted_weights = res.weights
 

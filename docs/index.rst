@@ -1,5 +1,5 @@
 ensemble documentation
-===================
+======================
 
 .. toctree::
    :hidden:
