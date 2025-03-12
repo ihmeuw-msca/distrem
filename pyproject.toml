@@ -20,7 +20,7 @@ classifiers = [
 dependencies = ["numpy", "scipy", "cvxpy"]
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-cov", "numpy", "scipy", "cvxpy"]
+test = ["pytest", "pytest-cov", "numpy", "scipy", "cvxpy", "matplotlib", "pandas"]
 docs = ["sphinx", "sphinx-autodoc-typehints", "furo"]
 
 [project.urls]
