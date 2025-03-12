@@ -2,12 +2,7 @@ API Reference
 =============
 
 .. toctree::
-   :hidden:
+   :maxdepth: 2
    :glob:
 
    *
-
-.. note::
-   Briefly describe the organization of the API reference if any.
-
-In ensemble, we only provide TBD features

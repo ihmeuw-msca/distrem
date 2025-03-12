@@ -48,8 +48,7 @@ In code form, this looks like...
     from ensemble.model import EnsembleDistribution
 
     ensemble_ex = EnsembleDistribution(
-        distributions=["Normal", "GumbelR"],
-        weights=[0.7, 0.3],
+        named_weights={"Normal": 0.7, "GumbelR": 0.3},
         mean=-4
         variance=5
     )
