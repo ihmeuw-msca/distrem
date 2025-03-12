@@ -36,7 +36,7 @@ exponential) with a positive support to fit this data.
 
     SBP_vals = stats.norm(loc=120, scale=7).rvs(size=100)
     model = EnsembleFitter(
-        distributions=["gamma", "invgamma", "fisk", "lognormal"],
+        distributions=["Gamma", "InvGamma", "Fisk", "LogNormal"],
         objective="L2"
     )
     res = model.fit(SBP_vals)
