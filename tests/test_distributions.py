@@ -1,7 +1,6 @@
 import numpy as np
 import pytest
-
-from distem.distributions import (
+from distrem.distributions import (
     Beta,
     Exponential,
     Fisk,

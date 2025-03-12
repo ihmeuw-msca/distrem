@@ -2,8 +2,8 @@ import numpy as np
 import pytest
 import scipy.stats as stats
 
-from distem.distributions import distribution_dict
-from distem.model import EnsembleDistribution, EnsembleFitter
+from distrem.distributions import distribution_dict
+from distrem.model import EnsembleDistribution, EnsembleFitter
 
 STD_NORMAL_DRAWS = stats.norm(loc=0, scale=1).rvs(100)
 

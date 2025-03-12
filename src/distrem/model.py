@@ -7,8 +7,7 @@ import numpy as np
 import numpy.typing as npt
 import scipy.optimize as opt
 import scipy.stats as stats
-
-from distem.distributions import Distribution, distribution_dict
+from distrem.distributions import Distribution, distribution_dict
 
 
 class EnsembleDistribution:
