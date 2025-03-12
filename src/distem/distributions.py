@@ -103,6 +103,7 @@ class Distribution(ABC):
         -------
         np.ndarray
             random variates from a given distribution/parameters
+
         """
         return self._shift(self._scipy_dist.rvs(*args, **kwds))
 
@@ -118,6 +119,7 @@ class Distribution(ABC):
         -------
         np.ndarray
             PDF evaluated at quantile x
+
         """
         return self._scipy_dist.pdf(self._shift(x))
 
@@ -133,6 +135,7 @@ class Distribution(ABC):
         -------
         np.ndarray
             CDF evaluated at quantile q
+
         """
         return self._scipy_dist.cdf(self._shift(q))
 
@@ -148,6 +151,7 @@ class Distribution(ABC):
         -------
         np.ndarray
             PPF evaluated at lower tail probability p
+
         """
         return self._shift(self._scipy_dist.ppf(p))
 
@@ -163,6 +167,7 @@ class Distribution(ABC):
         -------
         float | tuple[float, ...]
             mean, variance, skewness, and/or kurtosis
+
         """
         res_list = []
         if "m" in moments:
@@ -339,6 +344,7 @@ class Beta(Distribution):
         -------
         float
             transformed value within support
+
         """
         return (x - self.lb) / self.width
 
@@ -354,6 +360,7 @@ class Beta(Distribution):
         -------
         float
             transformed value within original support
+
         """
         return (x + self.lb) * self.width
 
@@ -382,6 +389,7 @@ class Beta(Distribution):
         -------
         np.ndarray
             random variates from a given distribution/parameters
+
         """
         return self._stretch(self._scipy_dist.rvs(*args, **kwds))
 
@@ -397,6 +405,7 @@ class Beta(Distribution):
         -------
         np.ndarray
             PDF evaluated at quantile x
+
         """
         return self._scipy_dist.pdf(self._squeeze(x))
 
@@ -412,6 +421,7 @@ class Beta(Distribution):
         -------
         np.ndarray
             CDF evaluated at quantile q
+
         """
         return self._scipy_dist.cdf(self._squeeze(q))
 
@@ -427,6 +437,7 @@ class Beta(Distribution):
         -------
         np.ndarray
             PPF evaluated at lower tail probability p
+
         """
         return self._stretch(self._scipy_dist.ppf(p))
 
@@ -442,6 +453,7 @@ class Beta(Distribution):
         -------
         float | tuple[float, ...]
             mean, variance, skewness, and/or kurtosis
+
         """
         res_list = []
         if "m" in moments:

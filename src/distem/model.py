@@ -8,7 +8,7 @@ import numpy.typing as npt
 import scipy.optimize as opt
 import scipy.stats as stats
 
-from ensemble.distributions import Distribution, distribution_dict
+from distem.distributions import Distribution, distribution_dict
 
 
 class EnsembleDistribution:
@@ -29,6 +29,7 @@ class EnsembleDistribution:
         desired lower bound of ensemble distribution, by default None
     ub : float, optional
         desired upper bound of ensemble distribution, by default None
+
     """
 
     def __init__(
@@ -251,6 +252,7 @@ class EnsembleDistribution:
         """THIS IS A DEMONSTRATION FUNCTION. SEE DOCUMENTATION FOR MORE PRACTICAL PLOTS
 
         plots the PDF and CDF of an ensemble distribution
+
         """
         fig, ax = plt.subplots(1, 2, figsize=(12, 6))
         scaling = 3 * np.sqrt(self.variance)
@@ -322,6 +324,7 @@ class EnsembleDistribution:
             if parameters across individual distributions don't match
         ValueError
             if the weight of a distribution is not set
+
         """
         try:
             mean, variance, lb, ub = (
@@ -378,6 +381,7 @@ class EnsembleDistribution:
         -------
         list["EnsembleDistribution"]
             list of EnsembleDistribution objects
+
         """
         with open(file_path, "r") as infile:
             distribution_summaries = json.load(infile)
@@ -460,6 +464,7 @@ class EnsembleFitter:
         ------
         NotImplementedError
             because the other ones havent been implemented yet lol
+
         """
         match self.objective:
             case "L1":
@@ -495,6 +500,7 @@ class EnsembleFitter:
         -------
         EnsembleResult
             result of ensemble distribution fitting
+
         """
         if np.min(data) < self.support[0] or self.support[1] < np.max(data):
             raise ValueError(
@@ -576,6 +582,7 @@ def _check_valid_ensemble(
         if there is a mismatch between num distributions and num weights
     ValueError
         if weights do not sum to 1
+
     """
     if len(distributions) != len(weights):
         raise ValueError(
@@ -604,6 +611,7 @@ def _check_supports_match(distributions: list[str]) -> tuple[float, float]:
     ValueError
         upon giving distributions whose supports do not exactly match one
         another
+
     """
     supports = set()
     for distribution in distributions:
