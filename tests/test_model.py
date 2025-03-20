@@ -84,7 +84,7 @@ def test_bounds():
 
 def test_objective_funcs():
     bad_obj = EnsembleFitter(["Normal"], "not_an_obj_func")
-    with pytest.raises(ValueError):
+    with pytest.raises(NotImplementedError):
         bad_obj.fit(STD_NORMAL_DRAWS)
     model_L1 = EnsembleFitter(["Fisk", "Gamma"], "L1")
     model_L1.fit(ENSEMBLE_POS_DRAWS)
