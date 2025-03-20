@@ -7,6 +7,7 @@ import numpy as np
 import numpy.typing as npt
 import scipy.optimize as opt
 import scipy.stats as stats
+
 from distrem.distributions import Distribution, distribution_dict
 
 
@@ -462,7 +463,7 @@ class EnsembleFitter:
         Raises
         ------
         NotImplementedError
-            because the other ones havent been implemented yet lol
+            when input corresponds to unimplemented objective function
 
         """
         match self.objective:
@@ -473,8 +474,8 @@ class EnsembleFitter:
             case "KS":
                 return cp.norm(vec, "inf")
             case _:
-                raise ValueError(
-                    "Your choice of objective function hasn't been implemented!"
+                raise NotImplementedError(
+                    "Your choice of objective function hasn't yet been implemented!"
                 )
 
     def fit(
