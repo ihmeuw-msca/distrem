@@ -5,4 +5,11 @@
 
 # Distrubtion Ensemble Fitter
 
-TODO...
+## Installation
+
+```shell
+pip install distrem
+```
+
+## Documentation
+https://ihmeuw-msca.github.io/distrem
