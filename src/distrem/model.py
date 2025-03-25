@@ -270,7 +270,7 @@ class EnsembleDistribution:
         ax[1].set_xlabel("DATA VALUES (UNITS)")
         ax[1].set_ylabel("density")
         ax[1].set_title("ensemble CDF")
-        
+
         plt.show()
 
     def to_json(self, file_path: str, appending: bool = False) -> None:
