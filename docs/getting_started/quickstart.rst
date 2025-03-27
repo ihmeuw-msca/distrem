@@ -8,7 +8,7 @@ Example
 **Premise:** You have individual level fasting plasma glucose (FPG) data in units of mmol/L for a
 population of 1000 patients.
 
-**Role of** :code:`ensemble` **package:** fit a density curve composed of a weighted sum of named
+**Role of** :code:`distrem` **package:** fit a density curve composed of a weighted sum of named
 probability distributions of your choice to the histogram of your FPG values
 
 The following code chunk generates data under the above premise, then fits a density curve of an
@@ -19,7 +19,7 @@ minimizing the KS statistic
 .. code-block:: python
 
     import scipy.stats
-    from ensemble.model import EnsembleDistribution, EnsembleFitter
+    from distrem.model import EnsembleDistribution, EnsembleFitter
 
     # "true" data under the above FPG premise
     true_model = EnsembleDistribution(
@@ -51,7 +51,7 @@ minimizing the KS statistic
     # try and see how the default plot changes!
     fisk_wbl_dist.plot()
 
-**Please see** :ref:`Plotting` **for a practical guide on plotting with ensemble.**
+**Please see** :ref:`Plotting` **for a practical guide on plotting with distrem.**
 
 EnsembleDistribution
 --------------------
@@ -84,7 +84,7 @@ object it's attached to.
 .. code-block:: python
 
     import numpy as np
-    from ensemble.model import EnsembleDistribution
+    from distrem.model import EnsembleDistribution
 
     support = np.linspace(0, 10, 100)
     ex = EnsembleDistribution({"Gamma": 0.7, "Fisk": 0.3}, 4, 1)

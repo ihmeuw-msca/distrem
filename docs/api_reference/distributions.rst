@@ -1,5 +1,5 @@
-ensemble.distributions
-======================
+distrem.distributions
+=====================
 
-.. automodule:: ensemble.distributions
+.. automodule:: distrem.distributions
    :members:
