@@ -1,27 +1,27 @@
-===================
-Installing ensemble
-===================
+==================
+Installing distrem
+==================
 
 Python version
 --------------
 
-The package :code:`ensemble` is written in Python
+The package :code:`distrem` is written in Python
 and requires Python 3.12 or later.
 
-:code:`ensemble` package is distributed at
-.. `PyPI <https://pypi.org/project/ensemble/>`_.
+:code:`distrem` package is distributed at
+`PyPI <https://pypi.org/project/distrem/>`_.
 TBD
 To install the package:
 
 .. code::
 
-   pip install ensemble
+   pip install distrem
 
 For developers, you can clone the repository and install the package in the
 development mode.
 
 .. code::
 
-    git clone https://github.com/ihmeuw-msca/ensemble.git
-    cd ensemble
+    git clone https://github.com/ihmeuw-msca/distrem.git
+    cd distrem
     pip install -e ".[test,docs]"
