@@ -1,5 +1,5 @@
-ensemble documentation
-======================
+distrem documentation
+=====================
 
 .. toctree::
    :hidden:
@@ -21,7 +21,7 @@ distributions and their respective weights.
    * - :ref:`Getting started`
      - :ref:`User guide`
 
-   * - If you are new to ensemble, this is where you should go. It contains main use cases and examples to help you get started.
+   * - If you are new to distrem, this is where you should go. It contains main use cases and examples to help you get started.
      - The user guide provides in-depth information on key concepts of ensemble distributions with useful background information and explanation.
 
 .. list-table::

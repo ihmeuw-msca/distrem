@@ -1,5 +1,5 @@
-ensemble.model
-==============
+distrem.model
+=============
 
-.. automodule:: ensemble.model
+.. automodule:: distrem.model
    :members:

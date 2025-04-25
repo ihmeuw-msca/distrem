@@ -271,6 +271,8 @@ class EnsembleDistribution:
         ax[1].set_ylabel("density")
         ax[1].set_title("ensemble CDF")
 
+        return fig
+
     def to_json(self, file_path: str, appending: bool = False) -> None:
         """serializes EnsembleDistribution object as a JSON file with the option
         to append instead of writing a new file

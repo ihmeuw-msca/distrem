@@ -32,7 +32,7 @@ exponential) with a positive support to fit this data.
 .. code-block:: python
 
     import scipy.stats as stats
-    from ensemble.model import EnsembleFitter
+    from distrem.model import EnsembleFitter
 
     SBP_vals = stats.norm(loc=120, scale=7).rvs(size=100)
     model = EnsembleFitter(
