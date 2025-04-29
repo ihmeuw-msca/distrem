@@ -28,6 +28,14 @@ DEFAULT_SETTINGS = (1, 1)
 
 
 def test_bad_weights():
+    # delete after me
+    mod = EnsembleFitter(["Normal", "GumbelR"], "KS")
+    mod.fit(
+        data=STD_NORMAL_DRAWS,
+        crit_pt_data=[-0.25, 0.33],
+        crit_pt_wts=[0.5, 0.5],
+    )
+    # delete before me
     with pytest.raises(ValueError):
         EnsembleDistribution({"Normal": 1, "GumbelR": 0.1}, *DEFAULT_SETTINGS)
     with pytest.raises(ValueError):

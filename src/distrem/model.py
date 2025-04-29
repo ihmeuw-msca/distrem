@@ -481,6 +481,8 @@ class EnsembleFitter:
     def fit(
         self,
         data: npt.ArrayLike,
+        crit_pt_data: list[float] | None = None,
+        crit_pt_wts: list[float] | None = None,
         lb: float | None = None,
         ub: float | None = None,
     ) -> EnsembleResult:
@@ -491,15 +493,26 @@ class EnsembleFitter:
         ----------
         data : npt.ArrayLike
             individual-level data (i.e. microdata)
-        lb: float, optional
+        crit_pt_data : list[float] | None, optional
+            critical points at which fit should be close, by default None
+        crit_pt_wts : list[float] | None, optional
+            weights assigned to critical points at which fit should be close, by default None
+        lb : float | None, optional
             lower allowable bound of data, by default None
-        ub: float, optional
+        ub : float | None, optional
             upper allowable bound of data, by default None
 
         Returns
         -------
         EnsembleResult
             result of ensemble distribution fitting
+
+        Raises
+        ------
+        ValueError
+            if range of data exceeds bounds of the support for ensemble distribution
+        ValueError
+            if there are fewer than 2 observations provided
 
         """
         if np.min(data) < self.support[0] or self.support[1] < np.max(data):
@@ -539,10 +552,22 @@ class EnsembleFitter:
 
         # CVXPY implementation
         w = cp.Variable(num_distributions)
-        objective = cp.Minimize(self._objective_func(eprobabilities - cdfs @ w))
-        constraints = [0 <= w, cp.sum(w) == 1]
-        prob = cp.Problem(objective, constraints)
-        prob.solve()
+        if crit_pt_data is None:
+            objective = cp.Minimize(
+                self._objective_func(eprobabilities - cdfs @ w)
+            )
+            constraints = [0 <= w, cp.sum(w) == 1]
+            prob = cp.Problem(objective, constraints)
+            prob.solve()
+        else:
+            # fmt: off
+            close_idx = [np.searchsorted(equantiles, crit_pt_data[i], side="left") for i in range(len(crit_pt_data))]
+            # import pdb; pdb.set_trace()
+            objective = cp.Minimize(np.array(crit_pt_wts) @ (eprobabilities[[close_idx]] - w @ cdfs[[close_idx]]).T)
+            # constraints = [0 <= w, cp.sum(w) == 1]
+            prob = cp.Problem(objective)
+            prob.solve()
+            # fmt: on
 
         # assign weights to each distribution object
         fitted_weights = w.value
