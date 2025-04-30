@@ -45,7 +45,7 @@ In code form, this looks like...
 
 .. code-block:: python
 
-    from ensemble.model import EnsembleDistribution
+    from distrem.model import EnsembleDistribution
 
     ensemble_ex = EnsembleDistribution(
         named_weights={"Normal": 0.7, "GumbelR": 0.3},
