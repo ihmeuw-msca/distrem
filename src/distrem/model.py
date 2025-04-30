@@ -563,7 +563,7 @@ class EnsembleFitter:
             # fmt: off
             close_idx = [np.searchsorted(equantiles, crit_pt_data[i], side="left") for i in range(len(crit_pt_data))]
             # import pdb; pdb.set_trace()
-            objective = cp.Minimize(np.array(crit_pt_wts) @ (eprobabilities[[close_idx]] - w @ cdfs[[close_idx]]).T)
+            objective = cp.Minimize((eprobabilities[[close_idx]] - cdfs[[close_idx]] @ w) @ np.array(crit_pt_wts))
             # constraints = [0 <= w, cp.sum(w) == 1]
             prob = cp.Problem(objective)
             prob.solve()
