@@ -475,10 +475,10 @@ class EnsembleFitter:
             when input corresponds to unimplemented objective function
 
         """
-        unwtd_d = eprobabilities[close_idx] - cdfs[close_idx] @ w
         # fmt: off
-
+        # import pdb; pdb.set_trace()
         # fmt: on
+        unwtd_d = eprobabilities[close_idx] - cdfs[close_idx] @ w
         d = unwtd_d @ tsh_wts
 
         match self.objective:
@@ -577,7 +577,7 @@ class EnsembleFitter:
         if tsh_pts is not None and tsh_wts is not None:
             close_idx = [np.searchsorted(equantiles, tsh_pts[i], side="left") for i in range(len(tsh_pts))]
         elif tsh_pts is None and tsh_wts is None:
-            tsh_wts = np.ones((1, len(eprobabilities)))
+            tsh_wts = np.ones((len(eprobabilities), ))
         else:
             raise ValueError("if BLANK is chosen, you must provide both threshold points and corresponding weights")
 
