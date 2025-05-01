@@ -32,8 +32,8 @@ def test_bad_weights():
     mod = EnsembleFitter(["Normal", "GumbelR"], "KS")
     mod.fit(
         data=STD_NORMAL_DRAWS,
-        crit_pt_data=[-0.25, 0.33],
-        crit_pt_wts=[0.5, 0.5],
+        tsh_pts=[-0.25, 0.33, 0.7],
+        tsh_wts=[0.5, 0.3, 0.2],
     )
     # delete before me
     with pytest.raises(ValueError):

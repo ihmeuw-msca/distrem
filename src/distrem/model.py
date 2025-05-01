@@ -447,12 +447,19 @@ class EnsembleFitter:
         self.distributions = distributions
         self.objective = objective
 
-    def _objective_func(self, vec: npt.NDArray) -> float:
+    def _objective_func(
+        self,
+        eprobabilities: npt.NDArray,
+        cdfs: npt.NDArray,
+        close_idx: npt.NDArray,
+        w: npt.NDArray,
+        tsh_wts: npt.NDArray,
+    ) -> float:
         """applies different penalties to vector of distances given by user
 
         Parameters
         ----------
-        vec : npt.NDArray
+        d : npt.NDArray
             distances, in this case, between empirical and ensemble CDFs
         objective : str
             name of objective function
@@ -468,13 +475,21 @@ class EnsembleFitter:
             when input corresponds to unimplemented objective function
 
         """
+        unwtd_d = eprobabilities[close_idx] - cdfs[close_idx] @ w
+        # fmt: off
+
+        # fmt: on
+        d = unwtd_d @ tsh_wts
+
         match self.objective:
             case "L1":
-                return cp.norm(vec, 1)
+                return cp.norm(d, 1)
             case "sum_squares":
-                return cp.sum_squares(vec)
+                return cp.sum_squares(d)
             case "KS":
-                return cp.norm(vec, "inf")
+                return cp.norm(d, "inf")
+            case "threshold_weave":
+                return d**2
             case _:
                 raise NotImplementedError(
                     "Your choice of objective function hasn't yet been implemented!"
@@ -483,8 +498,8 @@ class EnsembleFitter:
     def fit(
         self,
         data: npt.ArrayLike,
-        crit_pt_data: list[float] | None = None,
-        crit_pt_wts: list[float] | None = None,
+        tsh_pts: list[float] | None = None,
+        tsh_wts: list[float] | None = None,
         lb: float | None = None,
         ub: float | None = None,
     ) -> EnsembleResult:
@@ -495,10 +510,10 @@ class EnsembleFitter:
         ----------
         data : npt.ArrayLike
             individual-level data (i.e. microdata)
-        crit_pt_data : list[float] | None, optional
-            critical points at which fit should be close, by default None
-        crit_pt_wts : list[float] | None, optional
-            weights assigned to critical points at which fit should be close, by default None
+        tsh_data : list[float] | None, optional
+            thresholds at which fit should be close, by default None
+        tsh_wts : list[float] | None, optional
+            weights assigned to tresholds at which fit should be close, by default None
         lb : float | None, optional
             lower allowable bound of data, by default None
         ub : float | None, optional
@@ -553,23 +568,51 @@ class EnsembleFitter:
             pdfs[:, i] = curr_dist.pdf(equantiles)
 
         # CVXPY implementation
+        # fmt: off
         w = cp.Variable(num_distributions)
-        if crit_pt_data is None:
-            objective = cp.Minimize(
-                self._objective_func(eprobabilities - cdfs @ w)
-            )
-            constraints = [0 <= w, cp.sum(w) == 1]
-            prob = cp.Problem(objective, constraints)
-            prob.solve()
+        close_idx = slice(None)
+        # u = np.ones((1, len(eprobabilities)))
+        # if tsh_pts is None and tsh_wts is None:
+        #     tsh_pts = []
+        if tsh_pts is not None and tsh_wts is not None:
+            close_idx = [np.searchsorted(equantiles, tsh_pts[i], side="left") for i in range(len(tsh_pts))]
+        elif tsh_pts is None and tsh_wts is None:
+            tsh_wts = np.ones((1, len(eprobabilities)))
         else:
-            # fmt: off
-            close_idx = [np.searchsorted(equantiles, crit_pt_data[i], side="left") for i in range(len(crit_pt_data))]
-            # import pdb; pdb.set_trace()
-            objective = cp.Minimize((eprobabilities[[close_idx]] - cdfs[[close_idx]] @ w) @ np.array(crit_pt_wts))
-            # constraints = [0 <= w, cp.sum(w) == 1]
-            prob = cp.Problem(objective)
-            prob.solve()
-            # fmt: on
+            raise ValueError("if BLANK is chosen, you must provide both threshold points and corresponding weights")
+
+        objective = cp.Minimize(
+            self._objective_func(
+                eprobabilities=eprobabilities,
+                cdfs=cdfs,
+                close_idx=close_idx,
+                tsh_wts=np.array(tsh_wts),
+                w=w
+            )
+        )
+        constraints = [0 <= w, cp.sum(w) == 1]
+        prob = cp.Problem(objective, constraints)
+        prob.solve()
+
+        # if tsh_pts is None:
+        #     objective = cp.Minimize(
+        #         self._objective_func(eprobabilities - cdfs @ w)
+        #     )
+        #     constraints = [0 <= w, cp.sum(w) == 1]
+        #     prob = cp.Problem(objective, constraints)
+        #     prob.solve()
+        # else:
+
+
+        #     close_idx = [np.searchsorted(equantiles, tsh_pts[i], side="left") for i in range(len(tsh_pts))]
+        #     temp1 = eprobabilities[close_idx] - cdfs[close_idx] @ w
+        #     temp2 = np.array(tsh_wts)
+        #     # import pdb; pdb.set_trace()
+        #     objective = cp.Minimize((temp1 @ temp2)**2)
+        #     constraints = [0 <= w, cp.sum(w) == 1]
+        #     prob = cp.Problem(objective, constraints)
+        #     prob.solve()
+        # fmt: on
 
         # assign weights to each distribution object
         fitted_weights = w.value
