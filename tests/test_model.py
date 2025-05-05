@@ -28,14 +28,6 @@ DEFAULT_SETTINGS = (1, 1)
 
 
 def test_bad_weights():
-    # delete after me
-    mod = EnsembleFitter(["Normal", "GumbelR"], "KS")
-    mod.fit(
-        data=STD_NORMAL_DRAWS,
-        tsh_pts=[-0.25, 0.33, 0.7],
-        tsh_wts=[0.5, 0.3, 0.2],
-    )
-    # delete before me
     with pytest.raises(ValueError):
         EnsembleDistribution({"Normal": 1, "GumbelR": 0.1}, *DEFAULT_SETTINGS)
     with pytest.raises(ValueError):
@@ -157,6 +149,30 @@ def test_restricted_moments():
     variance = 1
     ex_bounded = EnsembleDistribution({"Gamma": 0.7, "Fisk": 0.3}, 4, 1, lb=2)
     bounded_rvs = ex_bounded.rvs(1000000)
-    print(np.var(bounded_rvs, ddof=1))
     assert np.isclose(np.mean(bounded_rvs), mean, atol=1e-02)
     assert np.isclose(np.var(bounded_rvs, ddof=1), variance, atol=1e-02)
+
+
+def test_tsh_weave():
+    modelRL = EnsembleFitter(["Normal"], "threshold_weave")
+    # incomplete parameters throw errors
+    with pytest.raises(ValueError):
+        modelRL.fit(STD_NORMAL_DRAWS, tsh_pts=[0.5, 1])
+    with pytest.raises(ValueError):
+        modelRL.fit(STD_NORMAL_DRAWS, tsh_wts=[0.5, 0.5])
+
+    modelPOS = EnsembleFitter(["Gamma", "LogNormal"], "threshold_weave")
+    # tsh out of range or wts dont sum to 1
+    with pytest.raises(ValueError):
+        modelPOS.fit(STD_NORMAL_DRAWS, tsh_pts=[-1, 1], tsh_wts=[0.5, 0.5])
+    with pytest.raises(ValueError):
+        modelPOS.fit(STD_NORMAL_DRAWS, tsh_pts=[0.5, 1], tsh_wts=[0.1, 1])
+    with pytest.raises(ValueError):
+        modelPOS.fit(STD_NORMAL_DRAWS, tsh_pts=[0.5, 1], tsh_wts=[0.1, 0.8])
+
+    mod = EnsembleFitter(["Normal", "GumbelR"], "threshold_weave")
+    mod.fit(
+        data=STD_NORMAL_DRAWS,
+        tsh_pts=[-0.25, 0.33, 0.7],
+        tsh_wts=[0.5, 0.3, 0.2],
+    )

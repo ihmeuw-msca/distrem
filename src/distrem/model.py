@@ -475,9 +475,6 @@ class EnsembleFitter:
             when input corresponds to unimplemented objective function
 
         """
-        # fmt: off
-        # import pdb; pdb.set_trace()
-        # fmt: on
         unwtd_d = eprobabilities[close_idx] - cdfs[close_idx] @ w
         d = unwtd_d @ tsh_wts
 
@@ -510,10 +507,10 @@ class EnsembleFitter:
         ----------
         data : npt.ArrayLike
             individual-level data (i.e. microdata)
-        tsh_data : list[float] | None, optional
-            thresholds at which fit should be close, by default None
+        tsh_pts : list[float] | None, optional
+            threshold values at which fit should be close, by default None
         tsh_wts : list[float] | None, optional
-            weights assigned to tresholds at which fit should be close, by default None
+            weights assigned to threshold values at which fit should be prioritized, by default None
         lb : float | None, optional
             lower allowable bound of data, by default None
         ub : float | None, optional
@@ -532,15 +529,8 @@ class EnsembleFitter:
             if there are fewer than 2 observations provided
 
         """
-        if np.min(data) < self.support[0] or self.support[1] < np.max(data):
-            raise ValueError(
-                "data exceeds bounds of the support of your ensemble"
-            )
-
-        if len(data) <= 1:
-            raise ValueError(
-                "you may only run this function with 2 or more data points"
-            )
+        _check_data_bounds(data, self.support)
+        _check_data_len(data)
 
         # sample stats, ecdf
         sample_mean = np.mean(data)
@@ -553,6 +543,25 @@ class EnsembleFitter:
         eprobabilities = np.interp(
             equantiles, ecdf.quantiles, ecdf.probabilities
         )
+
+        # finds
+        close_idx = slice(None)
+        if tsh_pts is not None and tsh_wts is not None:
+            close_idx = [
+                np.searchsorted(equantiles, tsh_pts[i], side="left")
+                for i in range(len(tsh_pts))
+            ]
+        elif tsh_pts is None and tsh_wts is None:
+            tsh_wts = np.ones((len(eprobabilities),))
+        else:
+            raise ValueError(
+                "if threshold_weave is chosen, you must provide both threshold points and corresponding weights"
+            )
+
+        if self.objective == "threshold_weave":
+            print(tsh_wts)
+            _check_tsh_wts(tsh_wts)
+            _check_tsh_pts(tsh_pts, self.support)
 
         # fill matrix with cdf values over support of data
         num_distributions = len(self.distributions)
@@ -568,51 +577,19 @@ class EnsembleFitter:
             pdfs[:, i] = curr_dist.pdf(equantiles)
 
         # CVXPY implementation
-        # fmt: off
         w = cp.Variable(num_distributions)
-        close_idx = slice(None)
-        # u = np.ones((1, len(eprobabilities)))
-        # if tsh_pts is None and tsh_wts is None:
-        #     tsh_pts = []
-        if tsh_pts is not None and tsh_wts is not None:
-            close_idx = [np.searchsorted(equantiles, tsh_pts[i], side="left") for i in range(len(tsh_pts))]
-        elif tsh_pts is None and tsh_wts is None:
-            tsh_wts = np.ones((len(eprobabilities), ))
-        else:
-            raise ValueError("if BLANK is chosen, you must provide both threshold points and corresponding weights")
-
         objective = cp.Minimize(
             self._objective_func(
                 eprobabilities=eprobabilities,
                 cdfs=cdfs,
                 close_idx=close_idx,
                 tsh_wts=np.array(tsh_wts),
-                w=w
+                w=w,
             )
         )
         constraints = [0 <= w, cp.sum(w) == 1]
         prob = cp.Problem(objective, constraints)
         prob.solve()
-
-        # if tsh_pts is None:
-        #     objective = cp.Minimize(
-        #         self._objective_func(eprobabilities - cdfs @ w)
-        #     )
-        #     constraints = [0 <= w, cp.sum(w) == 1]
-        #     prob = cp.Problem(objective, constraints)
-        #     prob.solve()
-        # else:
-
-
-        #     close_idx = [np.searchsorted(equantiles, tsh_pts[i], side="left") for i in range(len(tsh_pts))]
-        #     temp1 = eprobabilities[close_idx] - cdfs[close_idx] @ w
-        #     temp2 = np.array(tsh_wts)
-        #     # import pdb; pdb.set_trace()
-        #     objective = cp.Minimize((temp1 @ temp2)**2)
-        #     constraints = [0 <= w, cp.sum(w) == 1]
-        #     prob = cp.Problem(objective, constraints)
-        #     prob.solve()
-        # fmt: on
 
         # assign weights to each distribution object
         fitted_weights = w.value
@@ -632,6 +609,28 @@ class EnsembleFitter:
 ####################
 ### HELPER FUNCTIONS
 ####################
+def _check_data_bounds(data, support):
+    if np.min(data) < support[0] or support[1] < np.max(data):
+        raise ValueError("data exceeds bounds of the support of your ensemble")
+
+
+def _check_data_len(data):
+    if len(data) <= 1:
+        raise ValueError(
+            "you may only run this function with 2 or more data points"
+        )
+
+
+def _check_tsh_pts(tsh_pts, support):
+    if np.any(tsh_pts) < support[0] or support[1] < np.any(tsh_pts):
+        raise ValueError(
+            "threshold weights must be within the support of chosen distributions"
+        )
+
+
+def _check_tsh_wts(tsh_wts):
+    if not np.isclose(np.sum(tsh_wts), 1):
+        raise ValueError("threshold weights must sum to 1")
 
 
 def _check_valid_ensemble(
