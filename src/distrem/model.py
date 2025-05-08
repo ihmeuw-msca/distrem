@@ -586,6 +586,37 @@ class EnsembleFitter:
         return res
 
 
+class ExposureSDOptimizer:
+    def __init__(self, mean: float, named_weights: dict[str, float]):
+        self.mean = mean
+        self.named_weights = named_weights
+
+    def objective(
+        self,
+        sd: float,
+        weights: npt.ArrayLike,
+        upper: npt.ArrayLike,
+        lower=npt.ArrayLike,
+    ):
+        ens = EnsembleDistribution(
+            named_weights=self.named_weights,
+            mean=self.mean,
+            variance=sd**2,
+        )
+        # weights @ ((ens.cdf(upper) - ens.cdf(lower)) - p_hat)**2
+        pass
+
+    def optimize_sd(self, data):
+        # TODO: MUST THROW ERROR FOR DUPLICATE LOWER AND UPPER BOUND PAIRS
+        # TODO: MUST THROW ERROR IF UPPER BOUND LOWER THAN LOWER BOUND
+        # TODO: MUST THROW ERROR IF PREVALENCE NOT BETWEEN 0 AND 1
+
+        ub = data["ub"]
+        lb = data["lb"]
+        prev = data["prev"]
+        res = opt.minimize(fun=lambda sd: self.objective(sd), x0=3, args=())
+
+
 ####################
 ### HELPER FUNCTIONS
 ####################
