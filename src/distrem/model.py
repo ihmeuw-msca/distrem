@@ -596,25 +596,43 @@ class ExposureSDOptimizer:
         sd: float,
         weights: npt.ArrayLike,
         upper: npt.ArrayLike,
-        lower=npt.ArrayLike,
+        lower: npt.ArrayLike,
+        p_hat: npt.ArrayLike,
     ):
         ens = EnsembleDistribution(
             named_weights=self.named_weights,
             mean=self.mean,
             variance=sd**2,
         )
-        # weights @ ((ens.cdf(upper) - ens.cdf(lower)) - p_hat)**2
-        pass
+        return weights @ ((ens.cdf(upper) - ens.cdf(lower)) - p_hat) ** 2
 
-    def optimize_sd(self, data):
+    def optimize_sd(self, data, grid_search: bool = False):
         # TODO: MUST THROW ERROR FOR DUPLICATE LOWER AND UPPER BOUND PAIRS
         # TODO: MUST THROW ERROR IF UPPER BOUND LOWER THAN LOWER BOUND
         # TODO: MUST THROW ERROR IF PREVALENCE NOT BETWEEN 0 AND 1
 
+        weights = data["weights"]
         ub = data["ub"]
         lb = data["lb"]
         prev = data["prev"]
-        res = opt.minimize(fun=lambda sd: self.objective(sd), x0=3, args=())
+
+        z_score = stats.norm.ppf(prev[0])
+        sigma_init = (ub - self.mean) / z_score
+
+        # res = opt.minimize(fun=lambda sd: self.objective(sd), x0=3, args=())
+        if grid_search:
+            res = opt.minimize.brute(
+                func=self.objective,
+                ranges=(0, 2 * sigma_init),
+            )
+            return res.x0
+        else:
+            res = opt.minimize_scalar(
+                fun=self.objective,
+                bracket=(sigma_init, 0),
+                args=(weights, ub, lb, prev),
+            )
+            return res.x
 
 
 ####################

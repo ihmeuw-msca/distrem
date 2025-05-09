@@ -1,9 +1,14 @@
 import numpy as np
+import pandas as pd
 import pytest
 import scipy.stats as stats
 
 from distrem.distributions import distribution_dict
-from distrem.model import EnsembleDistribution, EnsembleFitter
+from distrem.model import (
+    EnsembleDistribution,
+    EnsembleFitter,
+    ExposureSDOptimizer,
+)
 
 STD_NORMAL_DRAWS = stats.norm(loc=0, scale=1).rvs(100)
 
@@ -160,3 +165,35 @@ def test_restricted_moments():
     print(np.var(bounded_rvs, ddof=1))
     assert np.isclose(np.mean(bounded_rvs), mean, atol=1e-02)
     assert np.isclose(np.var(bounded_rvs, ddof=1), variance, atol=1e-02)
+
+
+def test_expSD():
+    correct_mean = 14
+    target_sd = 7
+    target_dist = EnsembleDistribution(
+        named_weights={"Gamma": 0.6, "Weibull": 0.4},
+        mean=correct_mean,
+        variance=target_sd**2,
+    )
+    q0, q1, q2 = 23, 26, 27
+    target_prev = target_dist.cdf([q0, q1, q2])
+    prev0, prev1, prev2 = (
+        target_prev[1] - target_prev[0],
+        target_prev[2] - target_prev[1],
+        1 - target_prev[2],
+    )
+    p_hat = [prev0, prev1, prev2]
+
+    model = ExposureSDOptimizer(correct_mean, {"Gamma": 0.6, "LogNormal": 0.4})
+    df = pd.DataFrame(
+        data={
+            "weights": [0.1, 0.4, 0.5],
+            "lb": [q0, q1, q2],
+            "ub": [q1, q2, np.inf],
+            "prev": p_hat,
+        }
+    )
+
+    opt_sd0 = model.optimize_sd(df)
+    opt_sd1 = model.optimize_sd(df, grid_search=True)
+    # model.optimize_sd
