@@ -591,7 +591,7 @@ class ExposureSDOptimizer:
         self.mean = mean
         self.named_weights = named_weights
 
-    def objective(
+    def _objective(
         self,
         sd: float,
         weights: npt.ArrayLike,
@@ -606,31 +606,41 @@ class ExposureSDOptimizer:
         )
         return weights @ ((ens.cdf(upper) - ens.cdf(lower)) - p_hat) ** 2
 
-    def optimize_sd(self, data, grid_search: bool = False):
-        # TODO: MUST THROW ERROR FOR DUPLICATE LOWER AND UPPER BOUND PAIRS
-        # TODO: MUST THROW ERROR IF UPPER BOUND LOWER THAN LOWER BOUND
-        # TODO: MUST THROW ERROR IF PREVALENCE NOT BETWEEN 0 AND 1
+    def optimize_sd(
+        self,
+        data,
+        weights="weights",
+        lb="lb",
+        ub="ub",
+        prev="prev",
+        grid_search: bool = False,
+    ):
+        weights = np.array(data[weights])
+        lb = np.array(data[lb])
+        ub = np.array(data[ub])
+        prev = np.array(data[prev])
 
-        weights = data["weights"]
-        ub = data["ub"]
-        lb = data["lb"]
-        prev = data["prev"]
+        _check_duplicate_bounds(lb, ub)
+        _check_prevalences(prev)
 
-        z_score = stats.norm.ppf(prev[0])
-        sigma_init = (ub - self.mean) / z_score
+        if np.any(lb == np.inf):
+            inf_idx_lb = np.where(lb == np.inf)
+            z_score = stats.norm.ppf(prev[inf_idx_lb])
+            sigma_init = (self.mean - ub[inf_idx_lb]) / z_score
+        elif np.any(ub == np.inf):
+            inf_idx_ub = np.where(ub == np.inf)
+            z_score = stats.norm.ppf(prev[inf_idx_ub])
+            sigma_init = (self.mean - lb[inf_idx_ub]) / z_score
 
-        # res = opt.minimize(fun=lambda sd: self.objective(sd), x0=3, args=())
         if grid_search:
-            res = opt.minimize.brute(
-                func=self.objective,
-                ranges=(0, 2 * sigma_init),
+            res = opt.brute(
+                func=lambda sd: self._objective(sd, weights, ub, lb, prev),
+                ranges=((1, 2 * sigma_init),),
             )
-            return res.x0
+            return res[0]
         else:
             res = opt.minimize_scalar(
-                fun=self.objective,
-                bracket=(sigma_init, 0),
-                args=(weights, ub, lb, prev),
+                fun=lambda sd: self._objective(sd, weights, ub, lb, prev)
             )
             return res.x
 
@@ -638,6 +648,27 @@ class ExposureSDOptimizer:
 ####################
 ### HELPER FUNCTIONS
 ####################
+# def _calculate_sigma_init(lb: npt.ArrayLike, ub: npt.ArrayLike, use_lb: bool):
+#     inf_idx = np.where(bounds == np.inf)
+#     z_score = stats.norm.ppf(prev[inf_idx_lb])
+#     sigma_init = (self.mean - lb[inf_idx_lb]) / z_score
+
+
+def _check_duplicate_bounds(lb: npt.ArrayLike, ub: npt.ArrayLike):
+    bounds = set()
+    for i in range(len(lb)):
+        if lb[i] >= ub[i]:
+            raise ValueError(
+                f"provided lower bound {lb[i]} was greater than/equal to upper bound {ub[i]}. lower bound must be strictly less than upper bound"
+            )
+        bounds.add((lb[i], ub[i]))
+    if len(bounds) != len(lb):
+        raise ValueError("all upper and lower bound pairs must be unique!")
+
+
+def _check_prevalences(p_hat: npt.ArrayLike):
+    if np.any(p_hat) < 0 or np.any(p_hat) > 1:
+        raise ValueError("all prevalence values must be between [0, 1]")
 
 
 def _check_valid_ensemble(

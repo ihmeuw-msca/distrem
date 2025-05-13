@@ -33,14 +33,6 @@ DEFAULT_SETTINGS = (1, 1)
 
 
 def test_bad_weights():
-    # delete after me
-    mod = EnsembleFitter(["Normal", "GumbelR"], "KS")
-    mod.fit(
-        data=STD_NORMAL_DRAWS,
-        crit_pt_data=[-0.25, 0.33],
-        crit_pt_wts=[0.5, 0.5],
-    )
-    # delete before me
     with pytest.raises(ValueError):
         EnsembleDistribution({"Normal": 1, "GumbelR": 0.1}, *DEFAULT_SETTINGS)
     with pytest.raises(ValueError):
@@ -194,6 +186,8 @@ def test_expSD():
         }
     )
 
-    opt_sd0 = model.optimize_sd(df)
-    opt_sd1 = model.optimize_sd(df, grid_search=True)
-    # model.optimize_sd
+    assert np.isclose(
+        model.optimize_sd(df), model.optimize_sd(df, grid_search=True)
+    )
+    # assert np.isclose(7, model.optimize_sd(df))
+    # assert np.isclose(7, model.optimize_sd(df, grid_search=True))
