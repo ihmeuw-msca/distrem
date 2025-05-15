@@ -620,8 +620,8 @@ class ExposureSDOptimizer:
         ub = np.array(data[ub])
         prev = np.array(data[prev])
 
-        _check_duplicate_bounds(lb, ub)
         _check_prevalences(prev)
+        lb, ub, prev = _check_bounds(lb, ub, prev)
 
         if np.any(lb == np.inf):
             inf_idx_lb = np.where(lb == np.inf)
@@ -654,16 +654,26 @@ class ExposureSDOptimizer:
 #     sigma_init = (self.mean - lb[inf_idx_lb]) / z_score
 
 
-def _check_duplicate_bounds(lb: npt.ArrayLike, ub: npt.ArrayLike):
-    bounds = set()
+def _check_bounds(lb: npt.ArrayLike, ub: npt.ArrayLike, p_hat: npt.ArrayLike):
+    bounds = dict()
     for i in range(len(lb)):
         if lb[i] >= ub[i]:
             raise ValueError(
                 f"provided lower bound {lb[i]} was greater than/equal to upper bound {ub[i]}. lower bound must be strictly less than upper bound"
             )
-        bounds.add((lb[i], ub[i]))
-    if len(bounds) != len(lb):
-        raise ValueError("all upper and lower bound pairs must be unique!")
+        bound_pair = (lb[i], ub[i])
+        if bound_pair in bounds:
+            bounds[bound_pair].append(p_hat[i])
+        else:
+            bounds[bound_pair] = [p_hat[i]]
+
+    ub, lb, p_hat = [], [], []
+    for key, value in bounds.items():
+        lb.append(key[0])
+        ub.append(key[1])
+        p_hat.append(np.mean(value))
+
+    return lb, ub, p_hat
 
 
 def _check_prevalences(p_hat: npt.ArrayLike):
