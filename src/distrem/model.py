@@ -476,7 +476,7 @@ class EnsembleFitter:
 
         """
         unwtd_d = eprobabilities[close_idx] - cdfs[close_idx] @ w
-        d = unwtd_d @ tsh_wts
+        d = cp.multiply(unwtd_d, tsh_wts)
 
         match self.objective:
             case "L1":
@@ -485,8 +485,6 @@ class EnsembleFitter:
                 return cp.sum_squares(d)
             case "KS":
                 return cp.norm(d, "inf")
-            case "threshold_weave":
-                return d**2
             case _:
                 raise NotImplementedError(
                     "Your choice of objective function hasn't yet been implemented!"
@@ -547,6 +545,9 @@ class EnsembleFitter:
         # finds
         close_idx = slice(None)
         if tsh_pts is not None and tsh_wts is not None:
+            print(tsh_wts)
+            _check_tsh_wts(tsh_wts)
+            _check_tsh_pts(tsh_pts, self.support)
             close_idx = [
                 np.searchsorted(equantiles, tsh_pts[i], side="left")
                 for i in range(len(tsh_pts))
@@ -555,13 +556,8 @@ class EnsembleFitter:
             tsh_wts = np.ones((len(eprobabilities),))
         else:
             raise ValueError(
-                "if threshold_weave is chosen, you must provide both threshold points and corresponding weights"
+                "if you would like to use the tsh_pts and tsh_wts arguments, you must provide both"
             )
-
-        if self.objective == "threshold_weave":
-            print(tsh_wts)
-            _check_tsh_wts(tsh_wts)
-            _check_tsh_pts(tsh_pts, self.support)
 
         # fill matrix with cdf values over support of data
         num_distributions = len(self.distributions)
@@ -629,8 +625,11 @@ def _check_tsh_pts(tsh_pts, support):
 
 
 def _check_tsh_wts(tsh_wts):
-    if not np.isclose(np.sum(tsh_wts), 1):
-        raise ValueError("threshold weights must sum to 1")
+    wt_sum = np.sum(tsh_wts)
+    if not np.isclose(wt_sum, 1):
+        raise ValueError(
+            f"threshold weights must sum to 1, current sum is {wt_sum}"
+        )
 
 
 def _check_valid_ensemble(

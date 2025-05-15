@@ -154,14 +154,14 @@ def test_restricted_moments():
 
 
 def test_tsh_weave():
-    modelRL = EnsembleFitter(["Normal"], "threshold_weave")
+    modelRL = EnsembleFitter(["Normal"], "sum_squares")
     # incomplete parameters throw errors
     with pytest.raises(ValueError):
         modelRL.fit(STD_NORMAL_DRAWS, tsh_pts=[0.5, 1])
     with pytest.raises(ValueError):
         modelRL.fit(STD_NORMAL_DRAWS, tsh_wts=[0.5, 0.5])
 
-    modelPOS = EnsembleFitter(["Gamma", "LogNormal"], "threshold_weave")
+    modelPOS = EnsembleFitter(["Gamma", "LogNormal"], "sum_squares")
     # tsh out of range or wts dont sum to 1
     with pytest.raises(ValueError):
         modelPOS.fit(STD_NORMAL_DRAWS, tsh_pts=[-1, 1], tsh_wts=[0.5, 0.5])
@@ -170,7 +170,7 @@ def test_tsh_weave():
     with pytest.raises(ValueError):
         modelPOS.fit(STD_NORMAL_DRAWS, tsh_pts=[0.5, 1], tsh_wts=[0.1, 0.8])
 
-    mod = EnsembleFitter(["Normal", "GumbelR"], "threshold_weave")
+    mod = EnsembleFitter(["Normal", "GumbelR"], "sum_squares")
     mod.fit(
         data=STD_NORMAL_DRAWS,
         tsh_pts=[-0.25, 0.33, 0.7],
