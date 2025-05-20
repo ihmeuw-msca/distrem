@@ -447,12 +447,19 @@ class EnsembleFitter:
         self.distributions = distributions
         self.objective = objective
 
-    def _objective_func(self, vec: npt.NDArray) -> float:
+    def _objective_func(
+        self,
+        eprobabilities: npt.NDArray,
+        cdfs: npt.NDArray,
+        close_idx: npt.NDArray,
+        w: npt.NDArray,
+        tsh_wts: npt.NDArray,
+    ) -> float:
         """applies different penalties to vector of distances given by user
 
         Parameters
         ----------
-        vec : npt.NDArray
+        d : npt.NDArray
             distances, in this case, between empirical and ensemble CDFs
         objective : str
             name of objective function
@@ -468,13 +475,16 @@ class EnsembleFitter:
             when input corresponds to unimplemented objective function
 
         """
+        unwtd_d = eprobabilities[close_idx] - cdfs[close_idx] @ w
+        d = cp.multiply(unwtd_d, tsh_wts)
+
         match self.objective:
             case "L1":
-                return cp.norm(vec, 1)
+                return cp.norm(d, 1)
             case "sum_squares":
-                return cp.sum_squares(vec)
+                return cp.sum_squares(d)
             case "KS":
-                return cp.norm(vec, "inf")
+                return cp.norm(d, "inf")
             case _:
                 raise NotImplementedError(
                     "Your choice of objective function hasn't yet been implemented!"
@@ -483,8 +493,8 @@ class EnsembleFitter:
     def fit(
         self,
         data: npt.ArrayLike,
-        crit_pt_data: list[float] | None = None,
-        crit_pt_wts: list[float] | None = None,
+        tsh_pts: list[float] | None = None,
+        tsh_wts: list[float] | None = None,
         lb: float | None = None,
         ub: float | None = None,
     ) -> EnsembleResult:
@@ -495,10 +505,10 @@ class EnsembleFitter:
         ----------
         data : npt.ArrayLike
             individual-level data (i.e. microdata)
-        crit_pt_data : list[float] | None, optional
-            critical points at which fit should be close, by default None
-        crit_pt_wts : list[float] | None, optional
-            weights assigned to critical points at which fit should be close, by default None
+        tsh_pts : list[float] | None, optional
+            threshold values at which fit should be close, by default None
+        tsh_wts : list[float] | None, optional
+            weights assigned to threshold values at which fit should be prioritized, by default None
         lb : float | None, optional
             lower allowable bound of data, by default None
         ub : float | None, optional
@@ -517,15 +527,8 @@ class EnsembleFitter:
             if there are fewer than 2 observations provided
 
         """
-        if np.min(data) < self.support[0] or self.support[1] < np.max(data):
-            raise ValueError(
-                "data exceeds bounds of the support of your ensemble"
-            )
-
-        if len(data) <= 1:
-            raise ValueError(
-                "you may only run this function with 2 or more data points"
-            )
+        _check_data_bounds(data, self.support)
+        _check_data_len(data)
 
         # sample stats, ecdf
         sample_mean = np.mean(data)
@@ -538,6 +541,23 @@ class EnsembleFitter:
         eprobabilities = np.interp(
             equantiles, ecdf.quantiles, ecdf.probabilities
         )
+
+        # finds
+        close_idx = slice(None)
+        if tsh_pts is not None and tsh_wts is not None:
+            print(tsh_wts)
+            _check_tsh_wts(tsh_wts)
+            _check_tsh_pts(tsh_pts, self.support)
+            close_idx = [
+                np.searchsorted(equantiles, tsh_pts[i], side="left")
+                for i in range(len(tsh_pts))
+            ]
+        elif tsh_pts is None and tsh_wts is None:
+            tsh_wts = np.ones((len(eprobabilities),))
+        else:
+            raise ValueError(
+                "if you would like to use the tsh_pts and tsh_wts arguments, you must provide both"
+            )
 
         # fill matrix with cdf values over support of data
         num_distributions = len(self.distributions)
@@ -554,22 +574,18 @@ class EnsembleFitter:
 
         # CVXPY implementation
         w = cp.Variable(num_distributions)
-        if crit_pt_data is None:
-            objective = cp.Minimize(
-                self._objective_func(eprobabilities - cdfs @ w)
+        objective = cp.Minimize(
+            self._objective_func(
+                eprobabilities=eprobabilities,
+                cdfs=cdfs,
+                close_idx=close_idx,
+                tsh_wts=np.array(tsh_wts),
+                w=w,
             )
-            constraints = [0 <= w, cp.sum(w) == 1]
-            prob = cp.Problem(objective, constraints)
-            prob.solve()
-        else:
-            # fmt: off
-            close_idx = [np.searchsorted(equantiles, crit_pt_data[i], side="left") for i in range(len(crit_pt_data))]
-            # import pdb; pdb.set_trace()
-            objective = cp.Minimize((eprobabilities[[close_idx]] - cdfs[[close_idx]] @ w) @ np.array(crit_pt_wts))
-            # constraints = [0 <= w, cp.sum(w) == 1]
-            prob = cp.Problem(objective)
-            prob.solve()
-            # fmt: on
+        )
+        constraints = [0 <= w, cp.sum(w) == 1]
+        prob = cp.Problem(objective, constraints)
+        prob.solve()
 
         # assign weights to each distribution object
         fitted_weights = w.value
@@ -697,6 +713,33 @@ def _check_bounds(
 def _check_prevalences(p_hat: npt.ArrayLike):
     if np.any(p_hat) < 0 or np.any(p_hat) > 1:
         raise ValueError("all prevalence values must be between [0, 1]")
+
+
+def _check_data_bounds(data, support):
+    if np.min(data) < support[0] or support[1] < np.max(data):
+        raise ValueError("data exceeds bounds of the support of your ensemble")
+
+
+def _check_data_len(data):
+    if len(data) <= 1:
+        raise ValueError(
+            "you may only run this function with 2 or more data points"
+        )
+
+
+def _check_tsh_pts(tsh_pts, support):
+    if np.any(tsh_pts) < support[0] or support[1] < np.any(tsh_pts):
+        raise ValueError(
+            "threshold weights must be within the support of chosen distributions"
+        )
+
+
+def _check_tsh_wts(tsh_wts):
+    wt_sum = np.sum(tsh_wts)
+    if not np.isclose(wt_sum, 1):
+        raise ValueError(
+            f"threshold weights must sum to 1, current sum is {wt_sum}"
+        )
 
 
 def _check_valid_ensemble(
