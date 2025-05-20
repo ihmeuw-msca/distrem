@@ -621,7 +621,9 @@ class ExposureSDOptimizer:
         prev = np.array(data[prev])
 
         _check_prevalences(prev)
-        lb, ub, prev = _check_bounds(lb, ub, prev)
+        # TODO: WHAT SHOULD THE NEW CONSTRAINTS ON THE WEIGHTS BE?
+        # TODO: IS THERE ANY WAY TO SPEED THE BELOW FUNCTION UP?
+        weights, lb, ub, prev = _check_bounds(weights, lb, ub, prev)
 
         if np.any(lb == np.inf):
             inf_idx_lb = np.where(lb == np.inf)
@@ -631,6 +633,10 @@ class ExposureSDOptimizer:
             inf_idx_ub = np.where(ub == np.inf)
             z_score = stats.norm.ppf(prev[inf_idx_ub])
             sigma_init = (self.mean - lb[inf_idx_ub]) / z_score
+
+        # fmt: off
+        # import pdb; pdb.set_trace()
+        # fmt: on
 
         if grid_search:
             res = opt.brute(
@@ -654,7 +660,12 @@ class ExposureSDOptimizer:
 #     sigma_init = (self.mean - lb[inf_idx_lb]) / z_score
 
 
-def _check_bounds(lb: npt.ArrayLike, ub: npt.ArrayLike, p_hat: npt.ArrayLike):
+def _check_bounds(
+    weights: npt.ArrayLike,
+    lb: npt.ArrayLike,
+    ub: npt.ArrayLike,
+    p_hat: npt.ArrayLike,
+):
     bounds = dict()
     for i in range(len(lb)):
         if lb[i] >= ub[i]:
@@ -663,17 +674,24 @@ def _check_bounds(lb: npt.ArrayLike, ub: npt.ArrayLike, p_hat: npt.ArrayLike):
             )
         bound_pair = (lb[i], ub[i])
         if bound_pair in bounds:
-            bounds[bound_pair].append(p_hat[i])
+            bounds[bound_pair][0].append(weights[i])
+            bounds[bound_pair][1].append(p_hat[i])
         else:
-            bounds[bound_pair] = [p_hat[i]]
+            bounds[bound_pair] = [[weights[i]], [p_hat[i]]]
 
-    ub, lb, p_hat = [], [], []
+    weights, lb, ub, p_hat = [], [], [], []
     for key, value in bounds.items():
+        weights.append(np.mean(value[0]))
         lb.append(key[0])
         ub.append(key[1])
-        p_hat.append(np.mean(value))
+        p_hat.append(np.mean(value[1]))
 
-    return lb, ub, p_hat
+    return (
+        np.array(weights) / np.sum(weights),
+        np.array(lb),
+        np.array(ub),
+        np.array(p_hat),
+    )
 
 
 def _check_prevalences(p_hat: npt.ArrayLike):
