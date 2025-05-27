@@ -2,13 +2,13 @@
 Ensemble Fitting
 ================
 
-Basics
-------
+.. Basics
+.. ------
 
-The 2 main functionalities provided in this package are the following:
+.. The 2 main functionalities provided in this package are the following:
 
-#. Fit an ensemble distribution to a set of microdata :ref:`Fitting to Microdata`
-#. Optimize standard deviation of an ensemble distribution w/known mean, component distributions to 1 or more observed prevalence values.
+.. #. Fit an ensemble distribution to a set of microdata :ref:`Fitting to Microdata`
+.. #. Optimize standard deviation of an ensemble distribution w/known mean, component distributions to 1 or more observed prevalence values.
 
 Fitting to Microdata
 --------------------
@@ -16,12 +16,8 @@ Fitting to Microdata
 In order to fit an ensemble distribution to microdata, use the :code:`EnsembleFitter` object. The
 object must be initialized with 2 things.
 
-*A list of named distributions.* These distributions have "supports" that differ from each other. A
-support, for our purposes, can be thought of as the x values that are compatible with some given
-distribution. For example, the Normal distribution is supported on the entire real line, so it can
-take negative x values, but the Gamma is only supported on (0, :math:`\infty`), so it cannot take
-negative values. **Recall: you are not permitted to use distributions with differing supports in the
-same ensemble.**
+*A list of named distributions.* Recall: you are not permitted to use distributions with differing
+supports in the same ensemble distribution.
 
 *A penalty function of choice.* In a nutshell, we are minimizing across all the distance values
 between the empirical cumulative distribution function (eCDF) and the CDF of the ensemble subject to
@@ -48,7 +44,7 @@ exponential) with a positive support to fit this data.
     SBP_vals = stats.norm(loc=120, scale=7).rvs(size=100)
     model = EnsembleFitter(
         distributions=["Gamma", "InvGamma", "Fisk", "LogNormal"],
-        objective="L2"
+        objective="sum_squares"
     )
     res = model.fit(SBP_vals)
 
@@ -65,7 +61,7 @@ accessed as follows:
     fitted_ensemble = res.ensemble_distribution
 
 Example: Fitting an Ensemble w/Thresholds
------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Optional additional parameters may be provided to the :code:`fit()` function for specific use cases.
 
@@ -76,3 +72,34 @@ weights that are all equal to minimize only the distances of the left half of th
 providing 2 important values 25 and 29, with weights of 0.3 and 0.7 to ensure a close fit at these
 points.
 
+.. code-block:: python
+
+    import numpy as np
+    import scipy.stats as stats
+    from distrem.model import EnsembleFitter
+
+    SBP_vals = stats.norm(loc=120, scale=7).rvs(size=100)
+
+    # optimize KS statistic over the left half of the distribution
+    model = EnsembleFitter(
+        distributions=["Gamma", "InvGamma", "Fisk", "LogNormal"],
+        objective="KS"
+    )
+
+    res = model.fit(
+        data=SBP_vals,
+        tsh_pts=SBP_vals[0:len(SBP_vals) / 2],
+        tsh_wts=np.ones(len(SBP_vals) / 2)
+    )
+
+    # optimize sum of squares to selected values of SBP
+    model = EnsembleFitter(
+        distributions=["Gamma", "InvGamma", "Fisk", "LogNormal"],
+        objective="sum_squares"
+    )
+
+    res = model.fit(
+        data=SBP_vals,
+        tsh_pts=[120, 140, 160],
+        tsh_wts=[0.2, 0.4, 0.4],
+    )
