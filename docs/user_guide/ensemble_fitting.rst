@@ -50,15 +50,7 @@ exponential) with a positive support to fit this data.
 
 :code:`res` contains an array of fitted weights as well as an :code:`EnsembleDistribution` object
 that has already been initialized with the distributions provided to :code:`model`. They can be
-accessed as follows:
-
-.. code-block:: python
-
-    # fitted weights
-    fitted_weights = res.weights
-
-    # fitted ensemble
-    fitted_ensemble = res.ensemble_distribution
+accessed using :code:`res.weights` and :code:`res.ensemble_distribution`, respectively.
 
 Example: Fitting an Ensemble w/Thresholds
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -74,7 +66,6 @@ points.
 
 .. code-block:: python
 
-    import numpy as np
     import scipy.stats as stats
     from distrem.model import EnsembleFitter
 
@@ -92,7 +83,7 @@ points.
         tsh_wts=np.ones(len(SBP_vals) / 2)
     )
 
-    # optimize sum of squares to selected values of SBP
+    # optimize sum of squares on selected values of SBP
     model = EnsembleFitter(
         distributions=["Gamma", "InvGamma", "Fisk", "LogNormal"],
         objective="sum_squares"

@@ -11,8 +11,8 @@ sample mean and variance as given, and then solving for the 2 parameter system. 
 the :code:`create_scipy_dist()` function to find the equations used. The single exception is the
 Fisk distribution, where the form of the PDF necessitates the use of numerical minimization
 
-EnsembleModel
--------------
+EnsembleDistribution
+--------------------
 
 PDF, CDF, PPF
 ^^^^^^^^^^^^^

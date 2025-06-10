@@ -21,9 +21,7 @@ an estimate of the standard deviation of SBP in young males living in Seattle
 
 .. code-block:: python
 
-    import numpy as np
     import pandas as pd
-    import scipy.stats as stats
     from distrem.model import ExposureSDOptimizer
 
     model = ExposureSDOptimizer(

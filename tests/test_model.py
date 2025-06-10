@@ -185,15 +185,15 @@ def test_tsh_weave():
 
 def test_expSD():
     correct_mean = 14
-    target_sd = 100
+    target_sd = 7
     target_dist = EnsembleDistribution(
-        # named_weights={"Gamma": 0.6, "Weibull": 0.4},
-        named_weights={"Gamma": 1},
+        named_weights={"Gamma": 0.6, "Weibull": 0.4},
+        # named_weights={"Gamma": 1},
         mean=correct_mean,
         variance=target_sd**2,
     )
-    # q0, q1, q2 = 23, 26, 27
-    q0, q1, q2 = 30, 100, 200
+    q0, q1, q2 = 23, 26, 27
+    # q0, q1, q2 = 30, 100, 200
     target_prev = target_dist.cdf([q0, q1, q2])
     prev0, prev1, prev2 = (
         target_prev[1] - target_prev[0],
@@ -204,7 +204,10 @@ def test_expSD():
     print(p_hat)
 
     # model = ExposureSDOptimizer(correct_mean, {"Gamma": 0.6, "LogNormal": 0.4})
-    model = ExposureSDOptimizer(correct_mean, {"Gamma": 1})
+    model = ExposureSDOptimizer(
+        correct_mean, {"LogNormal": 0.2, "InvGamma": 0.8}
+    )
+    # model = ExposureSDOptimizer(correct_mean, {"Gamma": 1})
     df = pd.DataFrame(
         data={
             "weights": [0.1, 0.4, 0.5],
@@ -216,7 +219,7 @@ def test_expSD():
 
     assert np.isclose(
         model.optimize_sd(df),
-        100,  # model.optimize_sd(df, grid_search=True)
+        500,  # model.optimize_sd(df, grid_search=True)
     )
 
     p_hat.append(0.01)

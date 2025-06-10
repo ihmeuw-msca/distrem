@@ -661,8 +661,14 @@ class ExposureSDOptimizer:
             )
             return res[0]
         else:
+            # approach 1 (currently implemented)
+            # bracket on the right side of where sigma_init is
+            # approach 2
+            # check the overleaf scratch document (this might actually be better for a grid search approach?)
+            print(sigma_init)
             res = opt.minimize_scalar(
-                fun=lambda sd: self._objective(sd, weights, ub, lb, prev)
+                fun=lambda sd: self._objective(sd, weights, ub, lb, prev),
+                bracket=(sigma_init * 2, sigma_init * 3),
             )
             return res.x
 
