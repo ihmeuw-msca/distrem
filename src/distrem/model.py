@@ -529,6 +529,7 @@ class EnsembleFitter:
         """
         _check_data_bounds(data, self.support)
         _check_data_len(data)
+        _warn_duplicates(data)
 
         # sample stats, ecdf
         sample_mean = np.mean(data)
@@ -542,10 +543,9 @@ class EnsembleFitter:
             equantiles, ecdf.quantiles, ecdf.probabilities
         )
 
-        # finds
+        # given valid inputs, finds points on eCDF closest to threshold points
         close_idx = slice(None)
         if tsh_pts is not None and tsh_wts is not None:
-            print(tsh_wts)
             _check_tsh_wts(tsh_wts)
             _check_tsh_pts(tsh_pts, self.support)
             close_idx = [
@@ -585,7 +585,12 @@ class EnsembleFitter:
         )
         constraints = [0 <= w, cp.sum(w) == 1]
         prob = cp.Problem(objective, constraints)
-        prob.solve()
+        try:
+            prob.solve()
+        except cp.error.SolverError as e:
+            raise cp.error.SolverError(
+                f"{e}\nAdditional context for distrem: you have most likely supplied an array of all duplicate values causing the solver to fail"
+            )
 
         # assign weights to each distribution object
         fitted_weights = w.value
@@ -602,7 +607,7 @@ class EnsembleFitter:
         return res
 
 
-class ExposureSDOptimizer:
+class SDOptimizer:
     def __init__(self, mean: float, named_weights: dict[str, float]):
         self.mean = mean
         self.named_weights = named_weights
@@ -629,7 +634,6 @@ class ExposureSDOptimizer:
         lb="lb",
         ub="ub",
         prev="prev",
-        grid_search: bool = False,
     ):
         weights = np.array(data[weights])
         lb = np.array(data[lb])
@@ -637,49 +641,36 @@ class ExposureSDOptimizer:
         prev = np.array(data[prev])
 
         _check_prevalences(prev)
-        # TODO: WHAT SHOULD THE NEW CONSTRAINTS ON THE WEIGHTS BE?
-        # TODO: IS THERE ANY WAY TO SPEED THE BELOW FUNCTION UP?
         weights, lb, ub, prev = _check_bounds(weights, lb, ub, prev)
 
-        if np.any(lb == np.inf):
-            inf_idx_lb = np.where(lb == np.inf)
+        if np.any(np.isinf(lb)):
+            inf_idx_lb = np.where(np.isinf(lb))
             z_score = stats.norm.ppf(prev[inf_idx_lb])
-            sigma_init = (self.mean - ub[inf_idx_lb]) / z_score
-        elif np.any(ub == np.inf):
-            inf_idx_ub = np.where(ub == np.inf)
+            # print(z_score, self.mean, ub[inf_idx_lb])
+            sigma_init = np.abs((self.mean - ub[inf_idx_lb]) / z_score)
+        elif np.any(np.isinf(ub)):
+            inf_idx_ub = np.where(np.isinf(ub))
             z_score = stats.norm.ppf(prev[inf_idx_ub])
-            sigma_init = (self.mean - lb[inf_idx_ub]) / z_score
+            sigma_init = np.abs((self.mean - lb[inf_idx_ub]) / z_score)
 
-        # fmt: off
-        # import pdb; pdb.set_trace()
-        # fmt: on
+        res = opt.minimize_scalar(
+            fun=lambda sd: self._objective(sd, weights, ub, lb, prev),
+            bounds=(0, sigma_init * 1.5),
+            method="bounded",
+            options={"disp": True},
+        )
 
-        if grid_search:
-            res = opt.brute(
-                func=lambda sd: self._objective(sd, weights, ub, lb, prev),
-                ranges=((1, 2 * sigma_init),),
-            )
-            return res[0]
-        else:
-            # approach 1 (currently implemented)
-            # bracket on the right side of where sigma_init is
-            # approach 2
-            # check the overleaf scratch document (this might actually be better for a grid search approach?)
-            print(sigma_init)
-            res = opt.minimize_scalar(
-                fun=lambda sd: self._objective(sd, weights, ub, lb, prev),
-                bracket=(sigma_init * 2, sigma_init * 3),
-            )
-            return res.x
+        return res.x
 
 
 ####################
 ### HELPER FUNCTIONS
 ####################
-# def _calculate_sigma_init(lb: npt.ArrayLike, ub: npt.ArrayLike, use_lb: bool):
-#     inf_idx = np.where(bounds == np.inf)
-#     z_score = stats.norm.ppf(prev[inf_idx_lb])
-#     sigma_init = (self.mean - lb[inf_idx_lb]) / z_score
+def _warn_duplicates(data: npt.ArrayLike):
+    if len(np.unique(data)) == 1:
+        warnings.warn(
+            "Your data contains all duplicate values. You may receive a message regarding solver failure."
+        )
 
 
 def _check_bounds(
@@ -689,6 +680,8 @@ def _check_bounds(
     p_hat: npt.ArrayLike,
 ):
     bounds = dict()
+    if not np.isclose(np.sum(weights), 1):
+        raise ValueError("weights must all sum to 1")
     for i in range(len(lb)):
         if lb[i] >= ub[i]:
             raise ValueError(
@@ -703,13 +696,17 @@ def _check_bounds(
 
     weights, lb, ub, p_hat = [], [], [], []
     for key, value in bounds.items():
-        weights.append(np.mean(value[0]))
+        weight = np.array(value[0])
+        prev = np.array(value[1])
+        interval_wt_sum = np.sum(weight)
+
+        weights.append(np.sum(weight))
         lb.append(key[0])
         ub.append(key[1])
-        p_hat.append(np.mean(value[1]))
+        p_hat.append(np.sum(weight @ prev) / interval_wt_sum)
 
     return (
-        np.array(weights) / np.sum(weights),
+        np.array(weights),
         np.array(lb),
         np.array(ub),
         np.array(p_hat),

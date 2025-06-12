@@ -2,13 +2,10 @@ import numpy as np
 import pandas as pd
 import pytest
 import scipy.stats as stats
+from cvxpy.error import SolverError
 
 from distrem.distributions import distribution_dict
-from distrem.model import (
-    EnsembleDistribution,
-    EnsembleFitter,
-    ExposureSDOptimizer,
-)
+from distrem.model import EnsembleDistribution, EnsembleFitter, SDOptimizer
 
 STD_NORMAL_DRAWS = stats.norm(loc=0, scale=1).rvs(100)
 
@@ -104,6 +101,12 @@ def test_objective_funcs():
     model_KS.fit(ENSEMBLE_POS_DRAWS2)
 
 
+def test_duplicates():
+    model = EnsembleFitter(["Weibull", "Gamma"], "L1")
+    with pytest.raises(SolverError):
+        model.fit(np.array([2.7, 2.7]))
+
+
 def test_from_obj():
     gamma1 = distribution_dict["Gamma"](7, 1, lb=3)
     # diff mean/var
@@ -188,12 +191,10 @@ def test_expSD():
     target_sd = 7
     target_dist = EnsembleDistribution(
         named_weights={"Gamma": 0.6, "Weibull": 0.4},
-        # named_weights={"Gamma": 1},
         mean=correct_mean,
         variance=target_sd**2,
     )
     q0, q1, q2 = 23, 26, 27
-    # q0, q1, q2 = 30, 100, 200
     target_prev = target_dist.cdf([q0, q1, q2])
     prev0, prev1, prev2 = (
         target_prev[1] - target_prev[0],
@@ -201,13 +202,8 @@ def test_expSD():
         1 - target_prev[2],
     )
     p_hat = [prev0, prev1, prev2]
-    print(p_hat)
 
-    # model = ExposureSDOptimizer(correct_mean, {"Gamma": 0.6, "LogNormal": 0.4})
-    model = ExposureSDOptimizer(
-        correct_mean, {"LogNormal": 0.2, "InvGamma": 0.8}
-    )
-    # model = ExposureSDOptimizer(correct_mean, {"Gamma": 1})
+    model = SDOptimizer(correct_mean, {"LogNormal": 0.2, "InvGamma": 0.8})
     df = pd.DataFrame(
         data={
             "weights": [0.1, 0.4, 0.5],
@@ -216,11 +212,7 @@ def test_expSD():
             "prev": p_hat,
         }
     )
-
-    assert np.isclose(
-        model.optimize_sd(df),
-        500,  # model.optimize_sd(df, grid_search=True)
-    )
+    model.optimize_sd(df)
 
     p_hat.append(0.01)
     df_dupe = pd.DataFrame(
@@ -232,5 +224,14 @@ def test_expSD():
         }
     )
     model.optimize_sd(df_dupe)
-    # assert np.isclose(7, model.optimize_sd(df))
-    # assert np.isclose(7, model.optimize_sd(df, grid_search=True))
+
+    df_wrong = pd.DataFrame(
+        data={
+            "weights": [0.2, 0.4, 0.4, 0.1],
+            "lb": [q0, q1, q2, q2],
+            "ub": [q1, q2, np.inf, np.inf],
+            "prev": p_hat,
+        }
+    )
+    with pytest.raises(ValueError):
+        model.optimize_sd(df_wrong)

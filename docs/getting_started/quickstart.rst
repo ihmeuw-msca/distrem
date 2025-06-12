@@ -53,8 +53,8 @@ minimizing the KS statistic
 
 **Please see** :ref:`Plotting` **for a practical guide on plotting with distrem.**
 
-EnsembleDistribution
---------------------
+EnsembleDistribution Class
+--------------------------
 
 :code:`EnsembleDistribution` is one of the main classes the user interacts with. When initializing
 an :code:`EnsembleDistribution` object, the following arguments are required. Refer to :ref:`API Reference`
@@ -92,8 +92,8 @@ object it's attached to.
 
 .. image:: ../images/ensdist_plot_ex.png
 
-EnsembleFitter
---------------
+EnsembleFitter Class
+--------------------
 
 :code:`EnsembleFitter` is one of the main classes the user interacts with. When initializing an
 :code:`EnsembleFitter` object, the following arguments are required. Refer to :ref:`API Reference`
