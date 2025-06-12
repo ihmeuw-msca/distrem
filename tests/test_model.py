@@ -1,9 +1,11 @@
 import numpy as np
+import pandas as pd
 import pytest
 import scipy.stats as stats
+from cvxpy.error import SolverError
 
 from distrem.distributions import distribution_dict
-from distrem.model import EnsembleDistribution, EnsembleFitter
+from distrem.model import EnsembleDistribution, EnsembleFitter, SDOptimizer
 
 STD_NORMAL_DRAWS = stats.norm(loc=0, scale=1).rvs(100)
 
@@ -99,6 +101,12 @@ def test_objective_funcs():
     model_KS.fit(ENSEMBLE_POS_DRAWS2)
 
 
+def test_duplicates():
+    model = EnsembleFitter(["Weibull", "Gamma"], "L1")
+    with pytest.raises(SolverError):
+        model.fit(np.array([2.7, 2.7]))
+
+
 def test_from_obj():
     gamma1 = distribution_dict["Gamma"](7, 1, lb=3)
     # diff mean/var
@@ -149,6 +157,81 @@ def test_restricted_moments():
     variance = 1
     ex_bounded = EnsembleDistribution({"Gamma": 0.7, "Fisk": 0.3}, 4, 1, lb=2)
     bounded_rvs = ex_bounded.rvs(1000000)
-    print(np.var(bounded_rvs, ddof=1))
     assert np.isclose(np.mean(bounded_rvs), mean, atol=1e-02)
     assert np.isclose(np.var(bounded_rvs, ddof=1), variance, atol=1e-02)
+
+
+def test_tsh_weave():
+    modelRL = EnsembleFitter(["Normal"], "sum_squares")
+    # incomplete parameters throw errors
+    with pytest.raises(ValueError):
+        modelRL.fit(STD_NORMAL_DRAWS, tsh_pts=[0.5, 1])
+    with pytest.raises(ValueError):
+        modelRL.fit(STD_NORMAL_DRAWS, tsh_wts=[0.5, 0.5])
+
+    modelPOS = EnsembleFitter(["Gamma", "LogNormal"], "sum_squares")
+    # tsh out of range or wts dont sum to 1
+    with pytest.raises(ValueError):
+        modelPOS.fit(STD_NORMAL_DRAWS, tsh_pts=[-1, 1], tsh_wts=[0.5, 0.5])
+    with pytest.raises(ValueError):
+        modelPOS.fit(STD_NORMAL_DRAWS, tsh_pts=[0.5, 1], tsh_wts=[0.1, 1])
+    with pytest.raises(ValueError):
+        modelPOS.fit(STD_NORMAL_DRAWS, tsh_pts=[0.5, 1], tsh_wts=[0.1, 0.8])
+
+    mod = EnsembleFitter(["Normal", "GumbelR"], "sum_squares")
+    mod.fit(
+        data=STD_NORMAL_DRAWS,
+        tsh_pts=[-0.25, 0.33, 0.7],
+        tsh_wts=[0.5, 0.3, 0.2],
+    )
+
+
+def test_expSD():
+    correct_mean = 14
+    target_sd = 7
+    target_dist = EnsembleDistribution(
+        named_weights={"Gamma": 0.6, "Weibull": 0.4},
+        mean=correct_mean,
+        variance=target_sd**2,
+    )
+    q0, q1, q2 = 23, 26, 27
+    target_prev = target_dist.cdf([q0, q1, q2])
+    prev0, prev1, prev2 = (
+        target_prev[1] - target_prev[0],
+        target_prev[2] - target_prev[1],
+        1 - target_prev[2],
+    )
+    p_hat = [prev0, prev1, prev2]
+
+    model = SDOptimizer(correct_mean, {"LogNormal": 0.2, "InvGamma": 0.8})
+    df = pd.DataFrame(
+        data={
+            "weights": [0.1, 0.4, 0.5],
+            "lb": [q0, q1, q2],
+            "ub": [q1, q2, np.inf],
+            "prev": p_hat,
+        }
+    )
+    model.optimize_sd(df)
+
+    p_hat.append(0.01)
+    df_dupe = pd.DataFrame(
+        data={
+            "weights": [0.1, 0.4, 0.4, 0.1],
+            "lb": [q0, q1, q2, q2],
+            "ub": [q1, q2, np.inf, np.inf],
+            "prev": p_hat,
+        }
+    )
+    model.optimize_sd(df_dupe)
+
+    df_wrong = pd.DataFrame(
+        data={
+            "weights": [0.2, 0.4, 0.4, 0.1],
+            "lb": [q0, q1, q2, q2],
+            "ub": [q1, q2, np.inf, np.inf],
+            "prev": p_hat,
+        }
+    )
+    with pytest.raises(ValueError):
+        model.optimize_sd(df_wrong)

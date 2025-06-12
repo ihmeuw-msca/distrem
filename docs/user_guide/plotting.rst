@@ -27,16 +27,14 @@ things that you may want to plot, but 2 useful plots that will be demonstrated b
     # plot histogram w/fitted PDF
     ax[0].hist(data, density=True, bins=30)
     ax[0].plot(support, fitted_distribution.pdf(support))
-    ax[0].set_xlabel("SBP (mm/Hg)")
-    ax[0].set_ylabel("density")
-    ax[0].set_title("SBP histogram w/ensemble PDF Overlay")
+    ax[0].set(xlabel="SBP (mm/Hg)", ylabel="density", title="SBP histogram w/ensemble PDF overlay")
 
     # plot eCDF vs fitted CDF
     stats.ecdf(std_norm_draws).cdf.plot(ax[1])
     ax[1].plot(support, fitted_distribution.cdf(support))
-    ax[1].set_xlabel("SBP (mm/Hg)")
-    ax[1].set_ylabel("density")
-    ax[1].set_title("Empirical vs Ensemble CDF Comparison")
+    ax[1].set(xlabel="SBP (mm/Hg)", ylabel="density", title="Empirical vs Ensemble CDF Comparison")
+
+.. image:: ../images/ensdist_plot_ex.png
 
 **What is** :code:`support` **?:** You can think of :code:`support` as the x values (in the space of the
 data)for which we will calculate corresponding y values of density for, whether that be the PDF or

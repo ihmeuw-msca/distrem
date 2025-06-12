@@ -447,12 +447,19 @@ class EnsembleFitter:
         self.distributions = distributions
         self.objective = objective
 
-    def _objective_func(self, vec: npt.NDArray) -> float:
+    def _objective_func(
+        self,
+        eprobabilities: npt.NDArray,
+        cdfs: npt.NDArray,
+        close_idx: npt.NDArray,
+        w: npt.NDArray,
+        tsh_wts: npt.NDArray,
+    ) -> float:
         """applies different penalties to vector of distances given by user
 
         Parameters
         ----------
-        vec : npt.NDArray
+        d : npt.NDArray
             distances, in this case, between empirical and ensemble CDFs
         objective : str
             name of objective function
@@ -468,13 +475,16 @@ class EnsembleFitter:
             when input corresponds to unimplemented objective function
 
         """
+        unwtd_d = eprobabilities[close_idx] - cdfs[close_idx] @ w
+        d = cp.multiply(unwtd_d, tsh_wts)
+
         match self.objective:
             case "L1":
-                return cp.norm(vec, 1)
+                return cp.norm(d, 1)
             case "sum_squares":
-                return cp.sum_squares(vec)
+                return cp.sum_squares(d)
             case "KS":
-                return cp.norm(vec, "inf")
+                return cp.norm(d, "inf")
             case _:
                 raise NotImplementedError(
                     "Your choice of objective function hasn't yet been implemented!"
@@ -483,6 +493,8 @@ class EnsembleFitter:
     def fit(
         self,
         data: npt.ArrayLike,
+        tsh_pts: list[float] | None = None,
+        tsh_wts: list[float] | None = None,
         lb: float | None = None,
         ub: float | None = None,
     ) -> EnsembleResult:
@@ -493,9 +505,13 @@ class EnsembleFitter:
         ----------
         data : npt.ArrayLike
             individual-level data (i.e. microdata)
-        lb: float, optional
+        tsh_pts : list[float] | None, optional
+            threshold values at which fit should be close, by default None
+        tsh_wts : list[float] | None, optional
+            weights assigned to threshold values at which fit should be prioritized, by default None
+        lb : float | None, optional
             lower allowable bound of data, by default None
-        ub: float, optional
+        ub : float | None, optional
             upper allowable bound of data, by default None
 
         Returns
@@ -503,16 +519,17 @@ class EnsembleFitter:
         EnsembleResult
             result of ensemble distribution fitting
 
-        """
-        if np.min(data) < self.support[0] or self.support[1] < np.max(data):
-            raise ValueError(
-                "data exceeds bounds of the support of your ensemble"
-            )
+        Raises
+        ------
+        ValueError
+            if range of data exceeds bounds of the support for ensemble distribution
+        ValueError
+            if there are fewer than 2 observations provided
 
-        if len(data) <= 1:
-            raise ValueError(
-                "you may only run this function with 2 or more data points"
-            )
+        """
+        _check_data_bounds(data, self.support)
+        _check_data_len(data)
+        _warn_duplicates(data)
 
         # sample stats, ecdf
         sample_mean = np.mean(data)
@@ -525,6 +542,22 @@ class EnsembleFitter:
         eprobabilities = np.interp(
             equantiles, ecdf.quantiles, ecdf.probabilities
         )
+
+        # given valid inputs, finds points on eCDF closest to threshold points
+        close_idx = slice(None)
+        if tsh_pts is not None and tsh_wts is not None:
+            _check_tsh_wts(tsh_wts)
+            _check_tsh_pts(tsh_pts, self.support)
+            close_idx = [
+                np.searchsorted(equantiles, tsh_pts[i], side="left")
+                for i in range(len(tsh_pts))
+            ]
+        elif tsh_pts is None and tsh_wts is None:
+            tsh_wts = np.ones((len(eprobabilities),))
+        else:
+            raise ValueError(
+                "if you would like to use the tsh_pts and tsh_wts arguments, you must provide both"
+            )
 
         # fill matrix with cdf values over support of data
         num_distributions = len(self.distributions)
@@ -541,10 +574,23 @@ class EnsembleFitter:
 
         # CVXPY implementation
         w = cp.Variable(num_distributions)
-        objective = cp.Minimize(self._objective_func(eprobabilities - cdfs @ w))
+        objective = cp.Minimize(
+            self._objective_func(
+                eprobabilities=eprobabilities,
+                cdfs=cdfs,
+                close_idx=close_idx,
+                tsh_wts=np.array(tsh_wts),
+                w=w,
+            )
+        )
         constraints = [0 <= w, cp.sum(w) == 1]
         prob = cp.Problem(objective, constraints)
-        prob.solve()
+        try:
+            prob.solve()
+        except cp.error.SolverError as e:
+            raise cp.error.SolverError(
+                f"{e}\nAdditional context for distrem: you have most likely supplied an array of all duplicate values causing the solver to fail"
+            )
 
         # assign weights to each distribution object
         fitted_weights = w.value
@@ -561,9 +607,142 @@ class EnsembleFitter:
         return res
 
 
+class SDOptimizer:
+    def __init__(self, mean: float, named_weights: dict[str, float]):
+        self.mean = mean
+        self.named_weights = named_weights
+
+    def _objective(
+        self,
+        sd: float,
+        weights: npt.ArrayLike,
+        upper: npt.ArrayLike,
+        lower: npt.ArrayLike,
+        p_hat: npt.ArrayLike,
+    ):
+        ens = EnsembleDistribution(
+            named_weights=self.named_weights,
+            mean=self.mean,
+            variance=sd**2,
+        )
+        return weights @ ((ens.cdf(upper) - ens.cdf(lower)) - p_hat) ** 2
+
+    def optimize_sd(
+        self,
+        data,
+        weights="weights",
+        lb="lb",
+        ub="ub",
+        prev="prev",
+    ):
+        weights = np.array(data[weights])
+        lb = np.array(data[lb])
+        ub = np.array(data[ub])
+        prev = np.array(data[prev])
+
+        _check_prevalences(prev)
+        weights, lb, ub, prev = _check_bounds(weights, lb, ub, prev)
+
+        if np.any(np.isinf(lb)):
+            inf_idx_lb = np.where(np.isinf(lb))
+            z_score = stats.norm.ppf(prev[inf_idx_lb])
+            # print(z_score, self.mean, ub[inf_idx_lb])
+            sigma_init = np.abs((self.mean - ub[inf_idx_lb]) / z_score)
+        elif np.any(np.isinf(ub)):
+            inf_idx_ub = np.where(np.isinf(ub))
+            z_score = stats.norm.ppf(prev[inf_idx_ub])
+            sigma_init = np.abs((self.mean - lb[inf_idx_ub]) / z_score)
+
+        res = opt.minimize_scalar(
+            fun=lambda sd: self._objective(sd, weights, ub, lb, prev),
+            bounds=(0, sigma_init * 1.5),
+            method="bounded",
+            options={"disp": True},
+        )
+
+        return res.x
+
+
 ####################
 ### HELPER FUNCTIONS
 ####################
+def _warn_duplicates(data: npt.ArrayLike):
+    if len(np.unique(data)) == 1:
+        warnings.warn(
+            "Your data contains all duplicate values. You may receive a message regarding solver failure."
+        )
+
+
+def _check_bounds(
+    weights: npt.ArrayLike,
+    lb: npt.ArrayLike,
+    ub: npt.ArrayLike,
+    p_hat: npt.ArrayLike,
+):
+    bounds = dict()
+    if not np.isclose(np.sum(weights), 1):
+        raise ValueError("weights must all sum to 1")
+    for i in range(len(lb)):
+        if lb[i] >= ub[i]:
+            raise ValueError(
+                f"provided lower bound {lb[i]} was greater than/equal to upper bound {ub[i]}. lower bound must be strictly less than upper bound"
+            )
+        bound_pair = (lb[i], ub[i])
+        if bound_pair in bounds:
+            bounds[bound_pair][0].append(weights[i])
+            bounds[bound_pair][1].append(p_hat[i])
+        else:
+            bounds[bound_pair] = [[weights[i]], [p_hat[i]]]
+
+    weights, lb, ub, p_hat = [], [], [], []
+    for key, value in bounds.items():
+        weight = np.array(value[0])
+        prev = np.array(value[1])
+        interval_wt_sum = np.sum(weight)
+
+        weights.append(np.sum(weight))
+        lb.append(key[0])
+        ub.append(key[1])
+        p_hat.append(np.sum(weight @ prev) / interval_wt_sum)
+
+    return (
+        np.array(weights),
+        np.array(lb),
+        np.array(ub),
+        np.array(p_hat),
+    )
+
+
+def _check_prevalences(p_hat: npt.ArrayLike):
+    if np.any(p_hat) < 0 or np.any(p_hat) > 1:
+        raise ValueError("all prevalence values must be between [0, 1]")
+
+
+def _check_data_bounds(data, support):
+    if np.min(data) < support[0] or support[1] < np.max(data):
+        raise ValueError("data exceeds bounds of the support of your ensemble")
+
+
+def _check_data_len(data):
+    if len(data) <= 1:
+        raise ValueError(
+            "you may only run this function with 2 or more data points"
+        )
+
+
+def _check_tsh_pts(tsh_pts, support):
+    if np.any(tsh_pts) < support[0] or support[1] < np.any(tsh_pts):
+        raise ValueError(
+            "threshold weights must be within the support of chosen distributions"
+        )
+
+
+def _check_tsh_wts(tsh_wts):
+    wt_sum = np.sum(tsh_wts)
+    if not np.isclose(wt_sum, 1):
+        raise ValueError(
+            f"threshold weights must sum to 1, current sum is {wt_sum}"
+        )
 
 
 def _check_valid_ensemble(

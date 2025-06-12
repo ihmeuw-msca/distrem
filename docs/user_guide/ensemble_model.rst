@@ -1,10 +1,9 @@
-==============
-Ensemble Model
-==============
+=====================
+Ensemble distribution
+=====================
 
-There are currently 8 named distributions that are available for use in this package. See
-:code:`distributions.py` for implementation details if desired. In general, you do **not** have to
-interact with this file to be able to perform the functions described in the documentation.
+There are currently 8 named distributions that are available for use in this package.
+:code:`distributions.py` has implementation details if desired.
 
 1. Exponential
 2. Gamma
@@ -16,14 +15,14 @@ interact with this file to be able to perform the functions described in the doc
 8. Beta
 9. Weibull
 
-These distributions have "supports" that differ from each other. A support, for our purposes, can be
-thought of as the x values that are compatible with some given distribution. For example, the Normal
-distribution is supported on the entire real line, so it can take negative x values, but the Gamma
-is only supported on (0, :math:`\infty`), so it cannot take negative values. **Recall: you are not
-permitted to use distributions with differing supports in the same ensemble.**
+These distributions have "`supports <https://en.wikipedia.org/wiki/Support_(mathematics)#In_probability_and_measure_theory>`_"
+that differ from each other. Distributions with differing supports **cannot** be part of the same
+ensemble distribution. For example, the Normal distribution is supported on the entire real line,
+but the Gamma is only supported on (0, :math:`\infty`), meaning they would be incompatible in an
+ensemble distribution.
 
-After creating an EnsembleModel object, you can use various functions akin to those from scipy's
-:code:`rv_continuous` class. These functions are:
+After creating an EnsembleDistribution object, you can use various functions akin to those from
+scipy's :code:`rv_continuous` class. These functions are:
 
 * :code:`pdf()`
 * :code:`cdf()`
